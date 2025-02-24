@@ -1,3 +1,4 @@
+
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
@@ -7,7 +8,38 @@ local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
+local Settings = {}
 
+local function LoadSettings()
+    if isfile("HubInc.json") then
+        local success, result = pcall(function()
+            return HttpService:JSONDecode(readfile("HubInc.json"))
+        end)
+        if success and type(result) == "table" then
+            Settings = result
+        else
+            Settings = {}
+            pcall(function()
+                writefile("HubInc.json", HttpService:JSONEncode(Settings))
+            end)
+        end
+    else
+        Settings = {}
+        pcall(function()
+            writefile("HubInc.json", HttpService:JSONEncode(Settings))
+        end)
+    end
+end
+LoadSettings()
+
+local function SaveSettings()
+    if not Settings then
+        Settings = {}
+    end
+    pcall(function()
+        writefile("HubInc.json", HttpService:JSONEncode(Settings))
+    end)
+end
 ContentProvider:PreloadAsync({"rbxassetid://3570695787", "rbxassetid://2708891598", "rbxassetid://4155801252", "rbxassetid://4695575676", "rbxassetid://4155801252"})
 
 local Library = {
@@ -485,7 +517,8 @@ function Library:CreateTab(name)
     local SectionLayout = Instance.new("UIListLayout")
     local SectionPadding = Instance.new("UIPadding")
     
-    local TabElements = {}
+    local gameId = tostring(game.PlaceId)
+    local TabElements = { GameId = gameId }
     Library.TabCount = Library.TabCount + 1
 
     if Library.TabCount == 1 then
@@ -518,7 +551,7 @@ function Library:CreateTab(name)
     Title.Size = UDim2.new(1, 0, 1, 0)
     Title.ZIndex = 2
     Title.Font = Library.Theme.TextFont
-    Title.Text =  name
+    Title.Text = name
     Title.TextColor3 = Color3.fromRGB(255, 255, 255)
     Title.TextSize = 15.000
 
@@ -544,7 +577,6 @@ function Library:CreateTab(name)
     NameTabButton.MouseButton1Down:Connect(function()
         CloseAllTabs()
         ResetAllTabButtons()
-
         NameTab.Visible = true
         TweenService:Create(NameTabButton, TweenInfo.new(0.3, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {ImageColor3 = DarkenObjectColor(Library.Theme.MainColor, 15)}):Play()
     end)
@@ -556,7 +588,7 @@ function Library:CreateTab(name)
         local SectionContent = Instance.new("ScrollingFrame")
         local SectionContentLayout = Instance.new("UIListLayout")
 
-        local SectionElements = {}
+        local SectionElements = { GameId = self.GameId }
 
         NameSection.Name = (name .. "Section")
         NameSection.Parent = NameTab
@@ -713,105 +745,125 @@ function Library:CreateTab(name)
             table.insert(Library.LibraryColorTable, ButtonRounded)
         end
 
-        function SectionElements:CreateToggle(name, callback)
-            local NameToggle = Instance.new("Frame")
-            local Title = Instance.new("TextLabel")
-            local Toggle = Instance.new("TextButton")
-            local CheckboxOutline = Instance.new("ImageLabel")
-            local CheckboxTicked = Instance.new("ImageLabel")
-            local TickCover = Instance.new("Frame")
+function SectionElements:CreateToggle(name, callback)
+    local NameToggle = Instance.new("Frame")
+    local Title = Instance.new("TextLabel")
+    local Toggle = Instance.new("TextButton")
+    local CheckboxOutline = Instance.new("ImageLabel")
+    local CheckboxTicked = Instance.new("ImageLabel")
+    local TickCover = Instance.new("Frame")
 
-            local Toggled = false
+    local gameId = self.GameId
+    if not Settings[gameId] then Settings[gameId] = {} end
+    local Toggled = (Settings[gameId][name] ~= nil and Settings[gameId][name]) or false
 
-            NameToggle.Name = (name .. "Toggle")
-            NameToggle.Parent = SectionContent
-            NameToggle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            NameToggle.BackgroundTransparency = 1.000
-            NameToggle.Size = UDim2.new(0, 197, 0, 35)
-            NameToggle.ZIndex = 5
-            
-            Title.Name = "Title"
-            Title.Parent = NameToggle
-            Title.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            Title.BackgroundTransparency = 1.000
-            Title.Position = UDim2.new(0, 13, 0, 0)
-            Title.Size = UDim2.new(0, 149, 0, 35)
-            Title.ZIndex = 5
-            Title.Font = Library.Theme.TextFont
-            Title.Text = name
+    NameToggle.Name = (name .. "Toggle")
+    NameToggle.Parent = SectionContent
+    NameToggle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    NameToggle.BackgroundTransparency = 1.000
+    NameToggle.Size = UDim2.new(0, 197, 0, 35)
+    NameToggle.ZIndex = 5
+    
+    Title.Name = "Title"
+    Title.Parent = NameToggle
+    Title.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Title.BackgroundTransparency = 1.000
+    Title.Position = UDim2.new(0, 13, 0, 0)
+    Title.Size = UDim2.new(0, 149, 0, 35)
+    Title.ZIndex = 5
+    Title.Font = Library.Theme.TextFont
+    Title.Text = name
+    Title.TextColor3 = Toggled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(185, 185, 185)
+    Title.TextSize = 15.000
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+
+    Toggle.Name = "Toggle"
+    Toggle.Parent = NameToggle
+    Toggle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Toggle.BackgroundTransparency = 1.000
+    Toggle.Position = UDim2.new(0, 161, 0, 7)
+    Toggle.Size = UDim2.new(0, 20, 0, 20)
+    Toggle.ZIndex = 5
+    Toggle.AutoButtonColor = false
+    Toggle.Font = Library.Theme.TextFont
+    Toggle.Text = ""
+    Toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Toggle.TextSize = 14.000
+
+    CheckboxOutline.Name = "CheckboxOutline"
+    CheckboxOutline.Parent = Toggle
+    CheckboxOutline.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    CheckboxOutline.BackgroundTransparency = 1.000
+    CheckboxOutline.Position = UDim2.new(0.5, -12, 0.5, -12)
+    CheckboxOutline.Size = UDim2.new(0, 24, 0, 24)
+    CheckboxOutline.ZIndex = 5
+    CheckboxOutline.Image = "http://www.roblox.com/asset/?id=5416796047"
+    CheckboxOutline.ImageColor3 = Color3.fromRGB(65, 65, 65)
+
+    CheckboxTicked.Name = "CheckboxTicked"
+    CheckboxTicked.Parent = Toggle
+    CheckboxTicked.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    CheckboxTicked.BackgroundTransparency = 1.000
+    CheckboxTicked.Position = UDim2.new(0.5, -12, 0.5, -12)
+    CheckboxTicked.Size = UDim2.new(0, 24, 0, 24)
+    CheckboxTicked.ZIndex = 5
+    CheckboxTicked.Image = "http://www.roblox.com/asset/?id=5416796675"
+    CheckboxTicked.ImageColor3 = Color3.fromRGB(65, 65, 65)
+
+    TickCover.Name = "TickCover"
+    TickCover.Parent = Toggle
+    TickCover.BackgroundColor3 = Library.Theme.BackgroundColor
+    TickCover.BorderSizePixel = 0
+    TickCover.Position = UDim2.new(0.5, -7, 0.5, -7)
+    TickCover.Size = UDim2.new(0, 14, 0, 14)
+    TickCover.ZIndex = 5
+
+    local function UpdateVisual(state)
+        if state then
+            Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+            TickCover.Position = UDim2.new(0.5, 0, 0.5, 0)
+            TickCover.Size = UDim2.new(0, 0, 0, 0)
+            CheckboxOutline.ImageColor3 = Library.Theme.MainColor
+            CheckboxTicked.ImageColor3 = Library.Theme.MainColor
+        else
             Title.TextColor3 = Color3.fromRGB(185, 185, 185)
-            Title.TextSize = 15.000
-            Title.TextXAlignment = Enum.TextXAlignment.Left
-
-            Toggle.Name = "Toggle"
-            Toggle.Parent = NameToggle
-            Toggle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            Toggle.BackgroundTransparency = 1.000
-            Toggle.Position = UDim2.new(0, 161, 0, 7)
-            Toggle.Size = UDim2.new(0, 20, 0, 20)
-            Toggle.ZIndex = 5
-            Toggle.AutoButtonColor = false
-            Toggle.Font = Library.Theme.TextFont
-            Toggle.Text = ""
-            Toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-            Toggle.TextSize = 14.000
-
-            CheckboxOutline.Name = "CheckboxOutline"
-            CheckboxOutline.Parent = Toggle
-            CheckboxOutline.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            CheckboxOutline.BackgroundTransparency = 1.000
-            CheckboxOutline.Position = UDim2.new(0.5, -12, 0.5, -12)
-            CheckboxOutline.Size = UDim2.new(0, 24, 0, 24)
-            CheckboxOutline.ZIndex = 5
-            CheckboxOutline.Image = "http://www.roblox.com/asset/?id=5416796047"
-            CheckboxOutline.ImageColor3 = Color3.fromRGB(65, 65, 65)
-
-            CheckboxTicked.Name = "CheckboxTicked"
-            CheckboxTicked.Parent = Toggle
-            CheckboxTicked.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            CheckboxTicked.BackgroundTransparency = 1.000
-            CheckboxTicked.Position = UDim2.new(0.5, -12, 0.5, -12)
-            CheckboxTicked.Size = UDim2.new(0, 24, 0, 24)
-            CheckboxTicked.ZIndex = 5
-            CheckboxTicked.Image = "http://www.roblox.com/asset/?id=5416796675"
-            CheckboxTicked.ImageColor3 = Color3.fromRGB(65, 65, 65)
-
-            TickCover.Name = "TickCover"
-            TickCover.Parent = Toggle
-            TickCover.BackgroundColor3 = Library.Theme.BackgroundColor
-            TickCover.BorderSizePixel = 0
             TickCover.Position = UDim2.new(0.5, -7, 0.5, -7)
             TickCover.Size = UDim2.new(0, 14, 0, 14)
-            TickCover.ZIndex = 5
-
-            local function SetState(state)
-                if state then
-                    TweenService:Create(Title, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
-                    TweenService:Create(TickCover, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, 0, 0, 0)}):Play()
-                    TweenService:Create(CheckboxOutline, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {ImageColor3 = Library.Theme.MainColor}):Play()
-                    TweenService:Create(CheckboxTicked, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {ImageColor3 = Library.Theme.MainColor}):Play()
-                elseif not state then
-                    TweenService:Create(Title, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {TextColor3 = Color3.fromRGB(185, 185, 185)}):Play()
-                    TweenService:Create(TickCover, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(0.5, -7, 0.5, -7), Size = UDim2.new(0, 14, 0, 14)}):Play()
-                    TweenService:Create(CheckboxOutline, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {ImageColor3 = Color3.fromRGB(65, 65, 65)}):Play()
-                    TweenService:Create(CheckboxTicked, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {ImageColor3 = Color3.fromRGB(65, 65, 65)}):Play()
-				end
-				
-                callback(Toggled)
-			end
-			
-			Toggle.MouseButton1Down:Connect(function()
-                Toggled = not Toggled
-				SetState(Toggled)
-            end)
-
-            table.insert(Library.LibraryColorTable, CheckboxOutline)
-            table.insert(Library.LibraryColorTable, CheckboxTicked)
-
-            return {
-                SetState = SetState
-            }
+            CheckboxOutline.ImageColor3 = Color3.fromRGB(65, 65, 65)
+            CheckboxTicked.ImageColor3 = Color3.fromRGB(65, 65, 65)
         end
+    end
+
+    UpdateVisual(Toggled)
+
+    Toggle.MouseButton1Down:Connect(function()
+        Toggled = not Toggled
+        TweenService:Create(Title, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {TextColor3 = Toggled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(185, 185, 185)}):Play()
+        TweenService:Create(TickCover, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = Toggled and UDim2.new(0.5, 0, 0.5, 0) or UDim2.new(0.5, -7, 0.5, -7), Size = Toggled and UDim2.new(0, 0, 0, 0) or UDim2.new(0, 14, 0, 14)}):Play()
+        TweenService:Create(CheckboxOutline, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {ImageColor3 = Toggled and Library.Theme.MainColor or Color3.fromRGB(65, 65, 65)}):Play()
+        TweenService:Create(CheckboxTicked, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {ImageColor3 = Toggled and Library.Theme.MainColor or Color3.fromRGB(65, 65, 65)}):Play()
+        if not Settings[gameId] then Settings[gameId] = {} end
+        Settings[gameId][name] = Toggled
+        SaveSettings()
+        callback(Toggled)
+    end)
+
+    table.insert(Library.LibraryColorTable, CheckboxOutline)
+    table.insert(Library.LibraryColorTable, CheckboxTicked)
+
+    SectionContent.CanvasSize = UDim2.new(0, 0, 0, SectionContentLayout.AbsoluteContentSize.Y + 15)
+
+    return {
+        SetState = function(state)
+            Toggled = state
+            UpdateVisual(state)
+            if not Settings[gameId] then Settings[gameId] = {} end
+            Settings[gameId][name] = state
+            SaveSettings()
+            callback(state)
+        end
+    }
+end
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -979,55 +1031,62 @@ function SectionElements:CreateSlider(name, minimumvalue, maximumvalue, presetva
 end
 
 function SectionElements:CreateTextBox(name, characterLimit, placeholderText, callback)
-    local NameTextBox = Instance.new("Frame")
-    local Title = Instance.new("TextLabel")
-    local InputBox = Instance.new("TextBox")
+            local NameTextBox = Instance.new("Frame")
+            local Title = Instance.new("TextLabel")
+            local InputBox = Instance.new("TextBox")
 
-    NameTextBox.Name = name .. "TextBox"
-    NameTextBox.Parent = SectionContent
-    NameTextBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    NameTextBox.BackgroundTransparency = 1.000
-    NameTextBox.Size = UDim2.new(1, -10, 0, 50)
-    NameTextBox.ZIndex = 5
+            local gameId = self.GameId
+            if not Settings[gameId] then Settings[gameId] = {} end
+            local SavedText = Settings[gameId][name] or placeholderText or ""
 
-    Title.Name = "Title"
-    Title.Parent = NameTextBox
-    Title.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    Title.BackgroundTransparency = 1.000
-    Title.Position = UDim2.new(0, 10, 0, 0)
-    Title.Size = UDim2.new(1, -24, 0, 20)
-    Title.ZIndex = 5
-    Title.Font = Library.Theme.TextFont
-    Title.Text = name
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.TextSize = 15.000
-    Title.TextXAlignment = Enum.TextXAlignment.Left
+            NameTextBox.Name = name .. "TextBox"
+            NameTextBox.Parent = SectionContent
+            NameTextBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            NameTextBox.BackgroundTransparency = 1.000
+            NameTextBox.Size = UDim2.new(1, -10, 0, 50)
+            NameTextBox.ZIndex = 5
 
-    InputBox.Name = "InputBox"
-    InputBox.Parent = NameTextBox
-    InputBox.BackgroundColor3 = Color3.fromRGB(65, 65, 65)
-    InputBox.BackgroundTransparency = 0.100
-    InputBox.Position = UDim2.new(0, 10, 0, 20)
-    InputBox.Size = UDim2.new(1, -20, 0, 22)
-    InputBox.ZIndex = 5
-    InputBox.Font = Library.Theme.TextFont
-    InputBox.PlaceholderText = placeholderText or "message..."
-    InputBox.Text = placeholderText or ""
-    InputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    InputBox.TextSize = 14.000
-    InputBox.TextXAlignment = Enum.TextXAlignment.Left
+            Title.Name = "Title"
+            Title.Parent = NameTextBox
+            Title.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            Title.BackgroundTransparency = 1.000
+            Title.Position = UDim2.new(0, 10, 0, 0)
+            Title.Size = UDim2.new(1, -24, 0, 20)
+            Title.ZIndex = 5
+            Title.Font = Library.Theme.TextFont
+            Title.Text = name
+            Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Title.TextSize = 15.000
+            Title.TextXAlignment = Enum.TextXAlignment.Left
 
-    InputBox:GetPropertyChangedSignal("Text"):Connect(function()
-        if #InputBox.Text > characterLimit then
-            InputBox.Text = InputBox.Text:sub(1, characterLimit)
+            InputBox.Name = "InputBox"
+            InputBox.Parent = NameTextBox
+            InputBox.BackgroundColor3 = Color3.fromRGB(65, 65, 65)
+            InputBox.BackgroundTransparency = 0.100
+            InputBox.Position = UDim2.new(0, 10, 0, 20)
+            InputBox.Size = UDim2.new(1, -20, 0, 22)
+            InputBox.ZIndex = 5
+            InputBox.Font = Library.Theme.TextFont
+            InputBox.PlaceholderText = placeholderText or "message..."
+            InputBox.Text = SavedText
+            InputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+            InputBox.TextSize = 14.000
+            InputBox.TextXAlignment = Enum.TextXAlignment.Left
+
+            InputBox:GetPropertyChangedSignal("Text"):Connect(function()
+                if #InputBox.Text > characterLimit then
+                    InputBox.Text = InputBox.Text:sub(1, characterLimit)
+                end
+                if not Settings[gameId] then Settings[gameId] = {} end
+                Settings[gameId][name] = InputBox.Text ~= "" and InputBox.Text or placeholderText
+                SaveSettings()
+                if callback then
+                    callback(InputBox.Text ~= "" and InputBox.Text or placeholderText)
+                end
+            end)
+
+            return NameTextBox, InputBox
         end
-        if callback then
-            callback(InputBox.Text ~= "" and InputBox.Text or placeholderText)
-        end
-    end)
-
-    return NameTextBox, InputBox or ""
-end
         function SectionElements:CreateColorPicker(name, presetcolor, callback)
             local NameColorPicker = Instance.new("Frame")
             local Title = Instance.new("TextLabel")
@@ -1456,9 +1515,11 @@ end
             local Dropdown = Instance.new("ImageLabel")
             local DropdownContentLayout = Instance.new("UIListLayout")
 
+            local gameId = self.GameId -- Ambil gameId dari SectionElements
             local DropdownToggled = true
             table.insert(options, 1, "None")
-    local SelectedOption = options[1]
+            if not Settings[gameId] then Settings[gameId] = {} end
+            local SelectedOption = Settings[gameId][name] or options[presetoption] or options[1]
 
             NameDropdown.Name = (name .. "Dropdown")
             NameDropdown.Parent = SectionContent
@@ -1515,16 +1576,14 @@ end
                         v:Destroy()
                     end
                 end
-
                 DropdownToggled = true
                 TweenService:Create(TitleToggle, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
                 TweenService:Create(NameDropdown, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {Size = UDim2.new(0, 197, 0, 35)}):Play()
                 TweenService:Create(Dropdown, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {Size = UDim2.new(0, 165, 0, 0)}):Play()
             end
 
-            for i, v in pairs(options) do
+for i, v in pairs(options) do
                 local NameButton = Instance.new("TextButton")
-
                 NameButton.Name = (v .. "DropdownButton")
                 NameButton.Parent = Dropdown
                 NameButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -1535,20 +1594,19 @@ end
                 NameButton.AutoButtonColor = false
                 NameButton.Font = Library.Theme.TextFont
                 NameButton.Text = v
-                NameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+                NameButton.TextColor3 = (v == SelectedOption) and Library.Theme.MainColor or Color3.fromRGB(255, 255, 255)
                 NameButton.TextSize = 15.000
 
                 table.insert(Library.LibraryColorTable, NameButton)
-
-                if v == SelectedOption then
-                    NameButton.TextColor3 = Library.Theme.MainColor
-                end
 
                 NameButton.MouseButton1Down:Connect(function()
                     SelectedOption = v
                     ResetAllDropdownItems()
                     TitleToggle.Text = (name .. " - " .. SelectedOption)
                     TweenService:Create(NameButton, TweenInfo.new(0.35, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {TextColor3 = Library.Theme.MainColor}):Play()
+                    if not Settings[gameId] then Settings[gameId] = {} end
+                    Settings[gameId][name] = SelectedOption
+                    SaveSettings()
                     callback(NameButton.Text)
                 end)
 
@@ -1567,27 +1625,23 @@ end
             
             TitleToggle.MouseButton1Down:Connect(function()
                 DropdownToggled = not DropdownToggled
-            
                 if DropdownToggled then
                     TweenService:Create(TitleToggle, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
                     TweenService:Create(NameDropdown, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {Size = UDim2.new(0, 197, 0, 35)}):Play()
                     TweenService:Create(Dropdown, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {Size = UDim2.new(0, 165, 0, 0)}):Play()
-                elseif not DropdownToggled then
+                else
                     TweenService:Create(TitleToggle, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(185, 185, 185)}):Play()
                     TweenService:Create(NameDropdown, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {Size = UDim2.new(0, 197, 0, 35 + DropdownContentLayout.AbsoluteContentSize.Y)}):Play()
                     TweenService:Create(Dropdown, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {Size = UDim2.new(0, 165, 0, DropdownContentLayout.AbsoluteContentSize.Y)}):Play()
                 end
             end)
 
-            local function Refresh(newoptions, newpresetoption, newcallback)
+local function Refresh(newoptions, newpresetoption, newcallback)
                 ClearAllDropdownItems()
-
-                local SelectedOption = newoptions[newpresetoption]
+                local SelectedOption = Settings[gameId][name] or newoptions[newpresetoption] or newoptions[1]
                 TitleToggle.Text = (name .. " - " .. SelectedOption)
-
                 for i, v in pairs(newoptions) do
                     local NameButton = Instance.new("TextButton")
-    
                     NameButton.Name = (v .. "Button")
                     NameButton.Parent = Dropdown
                     NameButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -1598,27 +1652,26 @@ end
                     NameButton.AutoButtonColor = false
                     NameButton.Font = Library.Theme.TextFont
                     NameButton.Text = v
-                    NameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    NameButton.TextColor3 = (v == SelectedOption) and Library.Theme.MainColor or Color3.fromRGB(255, 255, 255)
                     NameButton.TextSize = 15.000
-    
-                    if v == SelectedOption then
-                        NameButton.TextColor3 = Library.Theme.MainColor
-                    end
-    
+
                     NameButton.MouseButton1Down:Connect(function()
                         SelectedOption = v
                         ResetAllDropdownItems()
                         TitleToggle.Text = (name .. " - " .. SelectedOption)
                         TweenService:Create(NameButton, TweenInfo.new(0.35, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {TextColor3 = Library.Theme.MainColor}):Play()
+                        if not Settings[gameId] then Settings[gameId] = {} end
+                        Settings[gameId][name] = SelectedOption
+                        SaveSettings()
                         newcallback(NameButton.Text)
                     end)
-    
+
                     NameButton.InputBegan:Connect(function(input)
                         if input.UserInputType == Enum.UserInputType.MouseMovement then
                             TweenService:Create(NameButton, TweenInfo.new(0.35, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {BackgroundTransparency = 0.95}):Play()
                         end
                     end)
-    
+
                     NameButton.InputEnded:Connect(function(input)
                         if input.UserInputType == Enum.UserInputType.MouseMovement then
                             TweenService:Create(NameButton, TweenInfo.new(0.35, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
@@ -1639,7 +1692,8 @@ function SectionElements:CreateMultiDropdown(name, options, minSelect, maxSelect
     
     local DropdownToggled = false
     local SelectedOptions = presetOptions or {}
-    local SelectedCountLabel = Instance.new("TextLabel")
+    local minSelect = tonumber(minSelect) or 1 -- Pastikan number
+    local maxSelect = tonumber(maxSelect) or (#options or 0) -- Pastikan number dan fallback jika options kosong
 
     NameDropdown.Name = (name .. "MultiDropdown")
     NameDropdown.Parent = SectionContent
@@ -1657,7 +1711,7 @@ function SectionElements:CreateMultiDropdown(name, options, minSelect, maxSelect
     TitleToggle.Size = UDim2.new(0, 167, 0, 30)
     TitleToggle.ZIndex = 7
     TitleToggle.Font = Library.Theme.TextFont
-    TitleToggle.Text = name .. " - " .. (#SelectedOptions .. "/" .. maxSelect)
+    TitleToggle.Text = name .. " - " .. #SelectedOptions .. "/" .. maxSelect -- Perbaiki konkatenasi
     TitleToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     TitleToggle.TextSize = 15.000
     TitleToggle.TextXAlignment = Enum.TextXAlignment.Left
@@ -1681,12 +1735,14 @@ function SectionElements:CreateMultiDropdown(name, options, minSelect, maxSelect
     DropdownContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
     local function UpdateTitle()
-        TitleToggle.Text = name .. " - " .. (#SelectedOptions .. "/" .. maxSelect)
-        callback(SelectedOptions)
+        TitleToggle.Text = name .. " - " .. #SelectedOptions .. "/" .. maxSelect
+        if callback then
+            callback(SelectedOptions)
+        end
     end
 
     local function ResetAllDropdownItems()
-        for i, v in pairs(Dropdown:GetChildren()) do
+        for _, v in pairs(Dropdown:GetChildren()) do
             if v:IsA("TextButton") then
                 if table.find(SelectedOptions, v.Text) then
                     TweenService:Create(v, TweenInfo.new(0.25, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {TextColor3 = Library.Theme.MainColor}):Play()
@@ -1698,7 +1754,7 @@ function SectionElements:CreateMultiDropdown(name, options, minSelect, maxSelect
     end
 
     local function ClearAllDropdownItems()
-        for i, v in pairs(Dropdown:GetChildren()) do
+        for _, v in pairs(Dropdown:GetChildren()) do
             if v:IsA("TextButton") then
                 v:Destroy()
             end
@@ -1708,7 +1764,7 @@ function SectionElements:CreateMultiDropdown(name, options, minSelect, maxSelect
     local function PopulateDropdown()
         ClearAllDropdownItems()
         
-        for i, v in pairs(options) do
+        for _, v in pairs(options or {}) do -- Pastikan options tidak nil
             local NameButton = Instance.new("TextButton")
             
             NameButton.Name = (v .. "DropdownButton")
@@ -1771,17 +1827,19 @@ function SectionElements:CreateMultiDropdown(name, options, minSelect, maxSelect
     end)
 
     local function Refresh(newOptions, newMinSelect, newMaxSelect, newPresetOptions)
-        options = newOptions
-        minSelect = newMinSelect
-        maxSelect = newMaxSelect
-        SelectedOptions = newPresetOptions or {}
-        UpdateTitle()
-        if DropdownToggled then
-            PopulateDropdown()
-            TweenService:Create(NameDropdown, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {Size = UDim2.new(0, 197, 0, 35 + DropdownContentLayout.AbsoluteContentSize.Y)}):Play()
-            TweenService:Create(Dropdown, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {Size = UDim2.new(0, 165, 0, DropdownContentLayout.AbsoluteContentSize.Y)}):Play()
-        end
+    options = newOptions or options
+    minSelect = tonumber(newMinSelect) or 0
+    maxSelect = tonumber(newMaxSelect) or maxSelect
+    SelectedOptions = newPresetOptions or {}
+    UpdateTitle()
+
+    if DropdownToggled then
+        PopulateDropdown()
+        TweenService:Create(NameDropdown, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {Size = UDim2.new(0, 197, 0, 35 + DropdownContentLayout.AbsoluteContentSize.Y)}):Play()
+        TweenService:Create(Dropdown, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {Size = UDim2.new(0, 165, 0, DropdownContentLayout.AbsoluteContentSize.Y)}):Play()
     end
+end
+
     UpdateTitle()
     return {
         Refresh = Refresh,
