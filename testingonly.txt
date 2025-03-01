@@ -1,4 +1,3 @@
-
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
@@ -9,35 +8,89 @@ local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 local Settings = {}
+local UIReferences = {
+    Toggles = {},
+    Dropdowns = {}
+}
 
 local function LoadSettings()
-    if isfile("Rdnm.json") then
+    local saveFile = "Rdnm.json"
+    pcall(function()
+        if getgenv and getgenv().SaveFile then
+            saveFile = getgenv().SaveFile
+        end
+    end)
+    if not saveFile:match("%.json$") then
+        saveFile = saveFile .. ".json"
+    end
+    if isfile(saveFile) then
         local success, result = pcall(function()
-            return HttpService:JSONDecode(readfile("Rdnm.json"))
+            return HttpService:JSONDecode(readfile(saveFile))
         end)
         if success and type(result) == "table" then
             Settings = result
+            if next(Settings) == nil or not Settings[tostring(game.PlaceId)] then
+                Settings[tostring(game.PlaceId)] = {}
+            end
         else
-            Settings = {}
+            Settings = { [tostring(game.PlaceId)] = {} }
             pcall(function()
-                writefile("Rdnm.json", HttpService:JSONEncode(Settings))
+                writefile(saveFile, HttpService:JSONEncode(Settings))
             end)
         end
     else
-        Settings = {}
+        Settings = { [tostring(game.PlaceId)] = {} }
         pcall(function()
-            writefile("Rdnm.json", HttpService:JSONEncode(Settings))
+            writefile(saveFile, HttpService:JSONEncode(Settings))
         end)
+    end
+    for gameId, gameSettings in pairs(Settings) do
+        if UIReferences.Toggles[gameId] then
+            for name, value in pairs(gameSettings) do
+                if UIReferences.Toggles[name] then
+                    local toggle = UIReferences.Toggles[name]
+                    toggle.Toggled = value
+                    toggle.TickCover.Position = value and UDim2.new(0.5, 0, 0.5, 0) or UDim2.new(0.5, -7, 0.5, -7)
+                    toggle.TickCover.Size = value and UDim2.new(0, 0, 0, 0) or UDim2.new(0, 14, 0, 14)
+                    toggle.CheckboxOutline.ImageColor3 = value and (Library and Library.Theme and Library.Theme.MainColor or Color3.fromRGB(255, 75, 75)) or Color3.fromRGB(65, 65, 65)
+                    toggle.CheckboxTicked.ImageColor3 = value and (Library and Library.Theme and Library.Theme.MainColor or Color3.fromRGB(255, 75, 75)) or Color3.fromRGB(65, 65, 65)
+                    if value and toggle.Callback then
+                        toggle.Callback(true)
+                    end
+                end
+            end
+        end
+        if UIReferences.Dropdowns[gameId] then
+            for name, value in pairs(gameSettings) do
+                if UIReferences.Dropdowns[name] then
+                    local dropdown = UIReferences.Dropdowns[name]
+                    dropdown.SelectedOption = value
+                    dropdown.TitleToggle.Text = name .. " - " .. value
+                    if dropdown.Callback then
+                        dropdown.Callback(value)
+                    end
+                end
+            end
+        end
     end
 end
 LoadSettings()
 
 local function SaveSettings()
+    local saveFile = "Rdnm.json"
+    pcall(function()
+        if getgenv and getgenv().SaveFile then
+            saveFile = getgenv().SaveFile
+        end
+    end)
+    if not saveFile:match("%.json$") then
+        saveFile = saveFile .. ".json"
+    end
     if not Settings then
-        Settings = {}
+        Settings = { [tostring(game.PlaceId)] = {} }
     end
     pcall(function()
-        writefile("Rdnm.json", HttpService:JSONEncode(Settings))
+        writefile(saveFile, HttpService:JSONEncode(Settings))
     end)
 end
 ContentProvider:PreloadAsync({"rbxassetid://3570695787", "rbxassetid://2708891598", "rbxassetid://4155801252", "rbxassetid://4695575676", "rbxassetid://4155801252"})
@@ -53,13 +106,33 @@ Library = {
         BackgroundColor = Color3.fromRGB(35, 35, 35),
         UIToggleKey = Enum.KeyCode.RightControl,
         TextFont = Enum.Font.SourceSansBold,
-        EasingStyle = Enum.EasingStyle.Quart
+        EasingStyle = Enum.EasingStyle.Quart,
+        Color = Color3.fromRGB(255, 75, 75),      
+        TextColor = Color3.fromRGB(255, 255, 255) 
     }
 }
-
 local selectedColor = Color3.fromRGB(255, 75, 75) -- Default
+
 pcall(function()
-    if getgenv().Color then
+    if getgenv and not getgenv().Color then
+    Library.Theme.Color = Color3.fromRGB(255, 75, 75)
+    elseif getgenv().Color == "rgb" then
+        coroutine.wrap(function()
+            while true do
+                if getgenv().StopRGB then break end
+                for i = 0, 1, 0.001 do
+                    selectedColor = Color3.fromHSV(i, 1, 1)
+                    Library.Theme.Color = selectedColor
+                    for _, v in pairs(Library.LibraryColorTable) do
+                        if v:IsA("Frame") or v:IsA("ImageButton") or (v:IsA("ImageLabel") and (v.Name == "Border" or v.Name == "BackgroundTab" or v == SectionBorder)) or v == SectionLayout then
+                            v.ImageColor3 = Library.Theme.Color
+                        end
+                    end
+                    task.wait(0.0001)
+                end
+            end
+        end)()
+    else
         local colorMap = {
             blue = Color3.fromRGB(0, 0, 255),
             red = Color3.fromRGB(255, 0, 0),
@@ -70,13 +143,71 @@ pcall(function()
             default = Color3.fromRGB(255, 75, 75),
             cyan = Color3.fromRGB(0, 255, 255),
             brown = Color3.fromRGB(139, 69, 19),
-            orange = Color3.fromRGB(255, 165, 0)
+            orange = Color3.fromRGB(255, 165, 0),
+            black = Color3.fromRGB(0, 0, 0),
+            white = Color3.fromRGB(255, 255, 255)
         }
         local colorKey = string.lower(getgenv().Color)
         selectedColor = colorMap[colorKey] or colorMap.default
+        Library.Theme.Color = selectedColor
     end
 end)
-
+local function UpdateTextColors()
+    for _, v in pairs(Library.LibraryColorTable) do
+        if typeof(v) == "Instance" then
+            if v:IsA("TextLabel") or v:IsA("TextButton") then
+                v.TextColor3 = Library.Theme.TextColor
+            elseif v:IsA("ImageLabel") and (v.Name == "CheckboxTicked" or v.Name == "CheckboxOutline") then
+                v.ImageColor3 = Library.Theme.TextColor
+            elseif v:IsA("TextLabel") and (v.Name == "Title" or v.Name == "TitleTab" or v.Name == "SectionTitle") then
+                v.TextColor3 = Library.Theme.TextColor
+            end
+        end
+    end
+end
+local selectedTextColor = Color3.fromRGB(255, 255, 255)
+pcall(function()
+    if getgenv().TextColor == "rgb" then
+        coroutine.wrap(function()
+            while true do
+                if getgenv().StopRGB then break end
+                for i = 0, 1, 0.002 do
+                    Library.Theme.TextColor = Color3.fromHSV(i, 1, 1)
+                    for _, v in pairs(Library.LibraryColorTable) do
+                        if v:IsA("TextLabel") or v:IsA("TextButton") then
+                            v.TextColor3 = Library.Theme.TextColor
+                        elseif v:IsA("ImageLabel") and v.Name == "CheckboxTicked" then
+                            v.ImageColor3 = Library.Theme.TextColor
+                        elseif v:IsA("ImageLabel") and v.Name == "CheckboxOutline" then
+                            v.ImageColor3 = Library.Theme.TextColor
+                        elseif v:IsA("TextLabel") and (v.Name == "Title" or v.Name == "TitleTab" or v.Name == "SectionTitle") then
+                            v.TextColor3 = Library.Theme.TextColor
+                        end
+                    end
+                    task.wait(0.01)
+                end
+            end
+        end)()
+    else
+        local colorMap = {
+            blue = Color3.fromRGB(0, 0, 255),
+            red = Color3.fromRGB(255, 0, 0),
+            green = Color3.fromRGB(0, 255, 0),
+            yellow = Color3.fromRGB(255, 255, 0),
+            purple = Color3.fromRGB(128, 0, 128),
+            pink = Color3.fromRGB(255, 105, 180),
+            default = Color3.fromRGB(255, 255, 255),
+            cyan = Color3.fromRGB(0, 255, 255),
+            brown = Color3.fromRGB(139, 69, 19),
+            orange = Color3.fromRGB(255, 165, 0),
+            black = Color3.fromRGB(0, 0, 0),
+            white = Color3.fromRGB(255, 255, 255)
+        }
+        local colorKey = string.lower(tostring(getgenv().TextColor))
+        Library.Theme.TextColor = colorMap[colorKey] or Color3.fromRGB(255, 255, 255)
+        UpdateTextColors()
+    end
+end)
 pcall(function()
     if getgenv().font then
         local fontMap = {
@@ -97,7 +228,6 @@ pcall(function()
 end)
 
 Library.Theme.MainColor = selectedColor
-
 local function DarkenObjectColor(object, amount)
     local h, s, v = Color3.toHSV(object)
     v = math.clamp(v - (amount / 255), 0, 1)
@@ -324,7 +454,18 @@ FloatingText.Font = Library.Theme.TextFont
 FloatingText.Text = "W"
 FloatingText.TextColor3 = Color3.fromRGB(255, 255, 255)
 FloatingText.TextSize = 20
+local function AutoContrast()
+    local color = string.lower(tostring(getgenv().Color))
+    if color == "white" then
+        FloatingText.TextColor3 = Color3.fromRGB(0, 0, 0)
+    elseif color == "black" then
+        FloatingText.TextColor3 = Color3.fromRGB(255, 255, 255) 
+    else
+        FloatingText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end
 
+AutoContrast()
 if not Library.LibraryColorTable then
     Library.LibraryColorTable = {}
 end
@@ -591,7 +732,8 @@ function Library:CreateTab(name)
     Title.ZIndex = 2
     Title.Font = Library.Theme.TextFont
     Title.Text = name
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextColor3 = Library.Theme.TextColor
+table.insert(Library.LibraryColorTable, Title) 
     Title.TextSize = 15.000
 
     SectionLayout.Name = "SectionLayout"
@@ -612,19 +754,17 @@ function Library:CreateTab(name)
     local smallSize = UDim2.new(0, 74, 0, 20)
 
 NameTabButton.MouseButton1Down:Connect(function()
-    -- Tutup semua tab terlebih dahulu
     if CloseAllTabs and type(CloseAllTabs) == "function" then 
         CloseAllTabs() 
     else
         for _, v in pairs(Tabs:GetChildren()) do
             if v:IsA("Frame") then 
                 v.Visible = false 
-                v.Position = UDim2.new(0, 0, 0, 0) -- Reset posisi ke default
+                v.Position = UDim2.new(0, 0, 0, 0)
             end
         end
     end
     
-    -- Reset warna semua tombol tab
     if ResetAllTabButtons and type(ResetAllTabButtons) == "function" then 
         ResetAllTabButtons() 
     else
@@ -637,17 +777,13 @@ NameTabButton.MouseButton1Down:Connect(function()
         end
     end
     
-    -- Tampilkan tab yang dipilih
     NameTab.Visible = true
     
-    -- Animasi transisi warna untuk section
     for _, child in pairs(NameTab:GetChildren()) do
         if child:IsA("ImageLabel") and child.Name:match("Section$") then
-            -- Set awal transparansi dan warna
             child.ImageTransparency = 1
             child.ImageColor3 = Library.Theme.MainColor
             
-            -- Animasi transisi
             TweenService:Create(child, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {
                 ImageTransparency = 0,
                 ImageColor3 = Library.Theme.BackgroundColor
@@ -655,13 +791,11 @@ NameTabButton.MouseButton1Down:Connect(function()
         end
     end
     
-    -- Animasi tombol tab yang dipilih
     TweenService:Create(NameTabButton, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {
         ImageColor3 = DarkenObjectColor(Library.Theme.MainColor, 20),
         Size = smallSize
     }):Play()
-    
-    -- Animasi posisi tab
+    table.insert(Library.LibraryColorTable, NameTabButton)
     TweenService:Create(NameTab, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {
         Position = UDim2.new(0, 0, 0, 0)
     }):Play()
@@ -715,10 +849,8 @@ if NameTab.Name == (Library.FirstTab .. "Tab") then
     end
 end
 
-    
+  
 
-
-    
 function TabElements:CreateSection(name)
     local NameSection = Instance.new("ImageLabel")
     local SectionBorder = Instance.new("ImageLabel")
@@ -737,6 +869,7 @@ function TabElements:CreateSection(name)
     NameSection.ZIndex = 4
     NameSection.Image = "rbxassetid://3570695787"
     NameSection.ImageColor3 = Library.Theme.MainColor
+    table.insert(Library.LibraryColorTable, NameSection)
     NameSection.ScaleType = Enum.ScaleType.Slice
     NameSection.SliceCenter = Rect.new(100, 100, 100, 100)
     NameSection.SliceScale = 0.025
@@ -751,6 +884,7 @@ function TabElements:CreateSection(name)
     SectionBorder.ZIndex = 3
     SectionBorder.Image = "rbxassetid://3570695787"
     SectionBorder.ImageColor3 = Library.Theme.MainColor
+    table.insert(Library.LibraryColorTable, SectionBorder)
     SectionBorder.ScaleType = Enum.ScaleType.Slice
     SectionBorder.SliceCenter = Rect.new(100, 100, 100, 100)
     SectionBorder.SliceScale = 0.050
@@ -761,11 +895,321 @@ function TabElements:CreateSection(name)
     SectionTitle.BorderSizePixel = 0
     SectionTitle.Text = name
     SectionTitle.Position = UDim2.new(0.5, (-SectionTitle.TextBounds.X - 5) / 2, 0, -12)
-    SectionTitle.Size = UDim2.new(0, SectionTitle.TextBounds.X + 5, 0, 22)
+    SectionTitle.Size = UDim2.new(0, SectionTitle.TextBounds.X + 20, 0, 22)
     SectionTitle.ZIndex = 4
     SectionTitle.Font = Library.Theme.TextFont
-    SectionTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SectionTitle.TextColor3 = Library.Theme.TextColor
+    table.insert(Library.LibraryColorTable, SectionTitle)
     SectionTitle.TextSize = 14.000
+    local titleCorner = Instance.new("UICorner")
+    titleCorner.CornerRadius = UDim.new(0, 10)
+    titleCorner.Parent = SectionTitle
+    
+    local isDetached = false
+    local lastValidPosition = NameSection.Position
+    local originalParent = NameSection.Parent
+    local minimized = false
+    
+    local Shadow = Instance.new("ImageLabel")
+    Shadow.Name = "Shadow"
+    Shadow.BackgroundTransparency = 1
+    Shadow.Image = "rbxassetid://3570695787"
+    Shadow.ImageColor3 = Color3.fromRGB(255, 255, 255)
+    Shadow.ImageTransparency = 0.7
+    Shadow.ScaleType = Enum.ScaleType.Slice
+    Shadow.SliceCenter = Rect.new(100, 100, 100, 100)
+    Shadow.SliceScale = 0.025
+    Shadow.Size = UDim2.new(0, 197, 0, 181)
+    Shadow.ZIndex = 3
+    Shadow.Visible = false
+    Shadow.Parent = UITabs
+    
+    local MinimizeBtn = Instance.new("TextButton")
+    MinimizeBtn.Name = "MinimizeBtn"
+    MinimizeBtn.Parent = NameSection
+    MinimizeBtn.BackgroundTransparency = 1
+    MinimizeBtn.Position = UDim2.new(1, -25, 0, 5)
+    MinimizeBtn.Size = UDim2.new(0, 20, 0, 20)
+    MinimizeBtn.ZIndex = 5
+    MinimizeBtn.Font = Library.Theme.TextFont
+    MinimizeBtn.Text = "-"
+    MinimizeBtn.TextColor3 = Library.Theme.TextColor
+    MinimizeBtn.TextSize = 16
+    MinimizeBtn.Visible = false
+    
+local function MakeSectionDraggable()
+    local dragging = false
+    local dragInput
+    local dragStart
+    local startPos
+    local holdStartTime
+    local isHolding = false
+
+    local function update(input)
+        if dragging and NameSection then
+            local delta = input.Position - dragStart
+            local newPos = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+            NameSection.Position = newPos
+            
+            if isDetached then
+                local nearestTab = nil
+                local minDistance = math.huge
+                for _, tab in pairs(Tabs:GetChildren()) do
+                    if tab:IsA("Frame") and tab.Visible then
+                        local tabPos = tab.AbsolutePosition
+                        local sectionPos = NameSection.AbsolutePosition
+                        local distance = math.sqrt((sectionPos.X - tabPos.X)^2 + (sectionPos.Y - tabPos.Y)^2)
+                        if distance < minDistance then
+                            minDistance = distance
+                            nearestTab = tab
+                        end
+                    end
+                end
+                
+                if nearestTab and NameSection then
+                    local tabPos = nearestTab.AbsolutePosition
+                    local distance = minDistance
+                    local minAttachDistance = 75
+                    
+                    if distance < minAttachDistance then
+                        local relativeX = tabPos.X - UILibrary.AbsolutePosition.X
+                        local relativeY = tabPos.Y - UILibrary.AbsolutePosition.Y
+                        Shadow.Position = UDim2.new(0, relativeX, 0, relativeY)
+                        Shadow.Visible = true
+                    else
+                        Shadow.Visible = false
+                    end
+                else
+                    Shadow.Visible = false
+                end
+            end
+        end
+    end
+
+    SectionTitle.InputBegan:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and NameSection then
+            dragging = true
+            dragStart = input.Position
+            startPos = NameSection.Position
+            holdStartTime = tick()
+            isHolding = true
+            
+            coroutine.wrap(function()
+                while isHolding do
+                    if tick() - holdStartTime >= 0.5 and not isDetached then
+                        lastValidPosition = NameSection.Position
+                        isDetached = true
+                        MinimizeBtn.Visible = true
+                        
+                        
+                        NameSection.Parent = UILibrary
+                        local detachOffsetX = 15
+                        local detachOffsetY = -15
+                        TweenService:Create(NameSection, TweenInfo.new(0.3, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {
+                            ImageColor3 = Color3.fromRGB(50, 50, 50),
+                            Position = UDim2.new(
+                                startPos.X.Scale,
+                                startPos.X.Offset + detachOffsetX,
+                                startPos.Y.Scale,
+                                startPos.Y.Offset + detachOffsetY
+                            )
+                        }):Play()
+                        
+                        
+                        TweenService:Create(NameSection, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                            Size = UDim2.new(0, 187, 0, 171)
+                        }):Play()
+                        task.wait(0.15)
+                        TweenService:Create(NameSection, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                            Size = UDim2.new(0, 197, 0, 181)
+                        }):Play()
+                        
+                        SectionTitle.Size = UDim2.new(0, NameSection.Size.X.Offset - 20, 0, 22)
+                        SectionTitle.Position = UDim2.new(0.5, -SectionTitle.Size.X.Offset / 2, 0, -12)
+                        break
+                    end
+                    task.wait()
+                end
+            end)()
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    isHolding = false
+                    if isDetached and NameSection then
+                        local nearestTab = nil
+                        local minDistance = math.huge
+                        for _, tab in pairs(Tabs:GetChildren()) do
+                            if tab:IsA("Frame") and tab.Visible then
+                                local tabPos = tab.AbsolutePosition
+                                local sectionPos = NameSection.AbsolutePosition
+                                local distance = math.sqrt((sectionPos.X - tabPos.X)^2 + (sectionPos.Y - tabPos.Y)^2)
+                                if distance < minDistance then
+                                    minDistance = distance
+                                    nearestTab = tab
+                                end
+                            end
+                        end
+                        
+                        if nearestTab then
+                            local tabPos = nearestTab.AbsolutePosition
+                            local distance = minDistance
+                            local minAttachDistance = 75
+                            if distance < minAttachDistance then
+                                local hasSectionAtDefault = false
+                                for _, child in pairs(nearestTab:GetChildren()) do
+                                    if child:IsA("ImageLabel") and child.Name:match("Section$") and
+                                       child.Position == UDim2.new(0, 0, 0.0574162677, 0) then
+                                        hasSectionAtDefault = true
+                                        break
+                                    end
+                                end
+                                
+                                if not hasSectionAtDefault then
+                                    
+                                    local relativeX = tabPos.X - UILibrary.AbsolutePosition.X
+                                    local relativeY = tabPos.Y - UILibrary.AbsolutePosition.Y
+                                    local targetPos = UDim2.new(0, relativeX, 0, relativeY + 12)
+                                    TweenService:Create(NameSection, TweenInfo.new(0.3, Library.Theme.EasingStyle, Enum.EasingDirection.In), {
+                                        Position = targetPos,
+                                        ImageColor3 = Library.Theme.BackgroundColor
+                                    }):Play()
+                                    
+                                    
+                                    TweenService:Create(NameSection, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                                        Size = UDim2.new(0, 207, 0, 191)
+                                    }):Play()
+                                    task.wait(0.15)
+                                    TweenService:Create(NameSection, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                                        Size = UDim2.new(0, 197, 0, 181)
+                                    }):Play()
+                                    
+                                    task.wait(0.3)
+                                    NameSection.Parent = nearestTab
+                                    isDetached = false
+                                    MinimizeBtn.Visible = false
+                                    SectionTitle.Size = UDim2.new(0, SectionTitle.TextBounds.X + 20, 0, 22)
+                                    SectionTitle.Position = UDim2.new(0.5, (-SectionTitle.TextBounds.X - 5) / 2, 0, -12)
+                                    NameSection.Position = UDim2.new(0, 0, 0.0574162677, 0)
+                                    Shadow.Visible = false
+                                    
+                                    local layout = nearestTab:FindFirstChild("SectionLayout")
+                                    if layout then
+                                        layout:ApplyLayout()
+                                    end
+                                else
+                                    
+                                    local availableTab = nil
+                                    for _, tab in pairs(Tabs:GetChildren()) do
+                                        if tab:IsA("Frame") and tab.Visible then
+                                            local hasDefaultSection = false
+                                            for _, child in pairs(tab:GetChildren()) do
+                                                if child:IsA("ImageLabel") and child.Name:match("Section$") and
+                                                   child.Position == UDim2.new(0, 0, 0.0574162677, 0) then
+                                                    hasDefaultSection = true
+                                                    break
+                                                end
+                                            end
+                                            if not hasDefaultSection then
+                                                availableTab = tab
+                                                break
+                                            end
+                                        end
+                                    end
+                                    
+                                    if availableTab then
+                                        local newTabPos = availableTab.AbsolutePosition
+                                        local relativeX = newTabPos.X - UILibrary.AbsolutePosition.X
+                                        local relativeY = newTabPos.Y - UILibrary.AbsolutePosition.Y
+                                        local targetPos = UDim2.new(0, relativeX, 0, relativeY + 12)
+                                        TweenService:Create(NameSection, TweenInfo.new(0.3, Library.Theme.EasingStyle, Enum.EasingDirection.In), {
+                                            Position = targetPos,
+                                            ImageColor3 = Library.Theme.BackgroundColor
+                                        }):Play()
+                                        
+                                        
+                                        TweenService:Create(NameSection, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                                            Size = UDim2.new(0, 207, 0, 191)
+                                        }):Play()
+                                        task.wait(0.15)
+                                        TweenService:Create(NameSection, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                                            Size = UDim2.new(0, 197, 0, 181)
+                                        }):Play()
+                                        
+                                        task.wait(0.3)
+                                        NameSection.Parent = availableTab
+                                        isDetached = false
+                                        MinimizeBtn.Visible = false
+                                        SectionTitle.Size = UDim2.new(0, SectionTitle.TextBounds.X + 20, 0, 22)
+                                        SectionTitle.Position = UDim2.new(0.5, (-SectionTitle.TextBounds.X - 5) / 2, 0, -12)
+                                        NameSection.Position = UDim2.new(0, 0, 0.0574162677, 0)
+                                        Shadow.Visible = false
+                                        
+                                        local layout = availableTab:FindFirstChild("SectionLayout")
+                                        if layout then
+                                            layout:ApplyLayout()
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+
+    SectionTitle.InputChanged:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and NameSection then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            update(input)
+        end
+    end)
+end
+    
+    local function ToggleMinimize()
+        if not isDetached then return end
+        
+        minimized = not minimized
+        if minimized then
+            TweenService:Create(NameSection, TweenInfo.new(0.3), {
+                Size = UDim2.new(0, 197, 0, 30),
+                ImageColor3 = Color3.fromRGB(70, 70, 70)
+            }):Play()
+            SectionContent.Visible = false
+            MinimizeBtn.Text = "⌄"
+        else
+            TweenService:Create(NameSection, TweenInfo.new(0.3), {
+                Size = UDim2.new(0, 197, 0, 181),
+                ImageColor3 = Color3.fromRGB(50, 50, 50)
+            }):Play()
+            SectionContent.Visible = true
+            MinimizeBtn.Text = "-"
+        end
+    end
+    
+    MinimizeBtn.MouseButton1Click:Connect(ToggleMinimize)
+    MakeSectionDraggable()
+    
+    task.spawn(function()
+        task.wait()
+        NameSection.Position = UDim2.new(0, 0, -0.5, 0)
+        TweenService:Create(NameSection, TweenInfo.new(0.5, Library.Theme.EasingStyle), {
+            Position = lastValidPosition,
+            ImageTransparency = 0,
+            ImageColor3 = Library.Theme.BackgroundColor
+        }):Play()
+    end)
     
     SectionContent.Name = "SectionContent"
     SectionContent.Parent = NameSection
@@ -791,15 +1235,13 @@ function TabElements:CreateSection(name)
         SectionContent.CanvasSize = UDim2.new(0, 0, 0, SectionContentLayout.AbsoluteContentSize.Y + 15)
     end)
 
-task.spawn(function()
-    task.wait()
-    TweenService:Create(NameSection, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {
-        ImageTransparency = 0,
-        ImageColor3 = Library.Theme.BackgroundColor
-    }):Play()
-end)
-
-    
+    task.spawn(function()
+        task.wait()
+        TweenService:Create(NameSection, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {
+            ImageTransparency = 0,
+            ImageColor3 = Library.Theme.BackgroundColor
+        }):Play()
+    end)
 function SectionElements:CreateLabel(name, text)
             local NameLabel = Instance.new("TextLabel")
 
@@ -812,6 +1254,7 @@ function SectionElements:CreateLabel(name, text)
             NameLabel.ZIndex = 5
             NameLabel.Font = Library.Theme.TextFont
             NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            table.insert(Library.LibraryColorTable, NameLabel)
             NameLabel.TextSize = 15.000
 
             local function ChangeText(newtext)
@@ -846,6 +1289,7 @@ function SectionElements:CreateLabel(name, text)
             Button.Name = "Button"
             Button.Parent = NameButton
             Button.BackgroundColor3 = Library.Theme.MainColor
+table.insert(Library.LibraryColorTable, Button)
             Button.BackgroundTransparency = 1.000
             Button.BorderSizePixel = 0
             Button.Position = UDim2.new(0.454314709, -76, 0.528571427, -12)
@@ -853,7 +1297,7 @@ function SectionElements:CreateLabel(name, text)
             Button.ZIndex = 6
             Button.Font = Library.Theme.TextFont
             Button.Text = name
-            Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Button.TextColor3 = Library.Theme.TextColor
             Button.TextSize = 15.000
             Button.ClipsDescendants = true
 
@@ -892,167 +1336,209 @@ function SectionElements:CreateLabel(name, text)
 
             table.insert(Library.LibraryColorTable, ButtonRounded)
         end
+function SectionElements:CreateToggle(name, ...)
+    local args = {...}
+    local presetToggle, callback, tooltipText = nil, nil, nil
 
-function SectionElements:CreateToggle(name, callback, tooltipText)
-            local NameToggle = Instance.new("Frame")
-            local Title = Instance.new("TextLabel")
-            local Toggle = Instance.new("TextButton")
-            local CheckboxOutline = Instance.new("ImageLabel")
-            local CheckboxTicked = Instance.new("ImageLabel")
-            local TickCover = Instance.new("Frame")
-            local Tooltip
-
-            local gameId = self.GameId
-            if not Settings[gameId] then Settings[gameId] = {} end
-            local Toggled = (Settings[gameId][name] ~= nil and Settings[gameId][name]) or false
-
-            NameToggle.Name = (name .. "Toggle")
-            NameToggle.Parent = SectionContent
-            NameToggle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            NameToggle.BackgroundTransparency = 1.000
-            NameToggle.Size = UDim2.new(0, 197, 0, 35)
-            NameToggle.ZIndex = 5
-            
-            Title.Name = "Title"
-            Title.Parent = NameToggle
-            Title.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            Title.BackgroundTransparency = 1.000
-            Title.Position = UDim2.new(0, 13, 0, 0)
-            Title.Size = UDim2.new(0, 149, 0, 35)
-            Title.ZIndex = 5
-            Title.Font = Library.Theme.TextFont
-            Title.Text = name
-            Title.TextColor3 = Toggled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(185, 185, 185)
-            Title.TextSize = 15.000
-            Title.TextXAlignment = Enum.TextXAlignment.Left
-
-            Toggle.Name = "Toggle"
-            Toggle.Parent = NameToggle
-            Toggle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            Toggle.BackgroundTransparency = 1.000
-            Toggle.Position = UDim2.new(0, 161, 0, 7)
-            Toggle.Size = UDim2.new(0, 20, 0, 20)
-            Toggle.ZIndex = 5
-            Toggle.AutoButtonColor = false
-            Toggle.Font = Library.Theme.TextFont
-            Toggle.Text = ""
-            Toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-            Toggle.TextSize = 14.000
-
-            CheckboxOutline.Name = "CheckboxOutline"
-            CheckboxOutline.Parent = Toggle
-            CheckboxOutline.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            CheckboxOutline.BackgroundTransparency = 1.000
-            CheckboxOutline.Position = UDim2.new(0.5, -12, 0.5, -12)
-            CheckboxOutline.Size = UDim2.new(0, 24, 0, 24)
-            CheckboxOutline.ZIndex = 5
-            CheckboxOutline.Image = "rbxassetid://5416796047"
-            CheckboxOutline.ImageColor3 = Color3.fromRGB(65, 65, 65)
-
-            CheckboxTicked.Name = "CheckboxTicked"
-            CheckboxTicked.Parent = Toggle
-            CheckboxTicked.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            CheckboxTicked.BackgroundTransparency = 1.000
-            CheckboxTicked.Position = UDim2.new(0.5, -12, 0.5, -12)
-            CheckboxTicked.Size = UDim2.new(0, 24, 0, 24)
-            CheckboxTicked.ZIndex = 6
-            CheckboxTicked.Image = "rbxassetid://5416796675"
-            CheckboxTicked.ImageColor3 = Color3.fromRGB(65, 65, 65)
-
-            TickCover.Name = "TickCover"
-            TickCover.Parent = Toggle
-            TickCover.BackgroundColor3 = Library.Theme.BackgroundColor
-            TickCover.BorderSizePixel = 0
-            TickCover.Position = UDim2.new(0.5, -7, 0.5, -7)
-            TickCover.Size = UDim2.new(0, 14, 0, 14)
-            TickCover.ZIndex = 7
-            if tooltipText then
-                Tooltip = Instance.new("TextLabel")
-                Tooltip.Name = "Tooltip"
-                Tooltip.Parent = NameToggle
-                Tooltip.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                Tooltip.Position = UDim2.new(0, 10, 0, -10)
-                Tooltip.ZIndex = 10
-                Tooltip.Font = Library.Theme.TextFont
-                Tooltip.Text = tooltipText
-                Tooltip.TextColor3 = Color3.fromRGB(0, 0, 0)
-                Tooltip.TextSize = 14.000
-                Tooltip.Visible = false
-                Tooltip.ClipsDescendants = true
-                
-                local UICorner = Instance.new("UICorner")
-                UICorner.CornerRadius = UDim.new(0, 5)
-                UICorner.Parent = Tooltip
-
-                local lineCount = 0
-                for _ in tooltipText:gmatch("\n") do
-                    lineCount = lineCount + 1
-                end
-                Tooltip.Position = UDim2.new(0, 10, 0, -10 - (lineCount * 20))
-                Tooltip.Size = UDim2.new(0, math.min(Tooltip.TextBounds.X + 10, 187), 0, Tooltip.TextBounds.Y + 5)
-
-                Title.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        Tooltip.Visible = true
-                    elseif input.UserInputType == Enum.UserInputType.MouseMovement then
-                        Tooltip.Visible = true
-                    end
-                end)
-
-                Title.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        Tooltip.Visible = false
-                    elseif input.UserInputType == Enum.UserInputType.MouseMovement then
-                        Tooltip.Visible = false
-                    end
-                end)
-            end
-
-            local function UpdateVisual(state)
-                if state then
-                    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-                    TickCover.Position = UDim2.new(0.5, 0, 0.5, 0)
-                    TickCover.Size = UDim2.new(0, 0, 0, 0)
-                    CheckboxOutline.ImageColor3 = Library.Theme.MainColor
-                    CheckboxTicked.ImageColor3 = Library.Theme.MainColor
-                else
-                    Title.TextColor3 = Color3.fromRGB(185, 185, 185)
-                    TickCover.Position = UDim2.new(0.5, -7, 0.5, -7)
-                    TickCover.Size = UDim2.new(0, 14, 0, 14)
-                    CheckboxOutline.ImageColor3 = Color3.fromRGB(65, 65, 65)
-                    CheckboxTicked.ImageColor3 = Color3.fromRGB(65, 65, 65)
-                end
-            end
-
-            UpdateVisual(Toggled)
-
-            Toggle.MouseButton1Down:Connect(function()
-                Toggled = not Toggled
-                TweenService:Create(Title, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {TextColor3 = Toggled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(185, 185, 185)}):Play()
-                TweenService:Create(TickCover, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = Toggled and UDim2.new(0.5, 0, 0.5, 0) or UDim2.new(0.5, -7, 0.5, -7), Size = Toggled and UDim2.new(0, 0, 0, 0) or UDim2.new(0, 14, 0, 14)}):Play()
-                TweenService:Create(CheckboxOutline, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {ImageColor3 = Toggled and Library.Theme.MainColor or Color3.fromRGB(65, 65, 65)}):Play()
-                TweenService:Create(CheckboxTicked, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {ImageColor3 = Toggled and Library.Theme.MainColor or Color3.fromRGB(65, 65, 65)}):Play()
-                if not Settings[gameId] then Settings[gameId] = {} end
-                Settings[gameId][name] = Toggled
-                SaveSettings()
-                callback(Toggled)
-            end)
-            table.insert(Library.LibraryColorTable, CheckboxOutline)
-            table.insert(Library.LibraryColorTable, CheckboxTicked)
-
-            SectionContent.CanvasSize = UDim2.new(0, 0, 0, SectionContentLayout.AbsoluteContentSize.Y + 15)
-
-            return {
-                SetState = function(state)
-                    Toggled = state
-                    UpdateVisual(state)
-                    if not Settings[gameId] then Settings[gameId] = {} end
-                    Settings[gameId][name] = state
-                    SaveSettings()
-                    callback(state)
-                end
-            }
+    for i, v in ipairs(args) do
+        if type(v) == "boolean" then
+            presetToggle = v
+        elseif type(v) == "function" and not callback then
+            callback = v
+        elseif type(v) == "string" and not tooltipText then
+            tooltipText = v
         end
+    end
+    callback = callback or function() end
+
+    local NameToggle = Instance.new("Frame")
+    local Title = Instance.new("TextLabel")
+    local Toggle = Instance.new("TextButton")
+    local CheckboxOutline = Instance.new("ImageLabel")
+    local CheckboxTicked = Instance.new("ImageLabel")
+    local TickCover = Instance.new("Frame")
+    local Tooltip
+
+    local gameId = self.GameId or tostring(game.PlaceId)
+    if not Settings[gameId] then Settings[gameId] = {} end
+    local Toggled = (presetToggle ~= nil and presetToggle) or false
+    if Settings[gameId][name] ~= nil then
+        Toggled = Settings[gameId][name]
+    end
+
+    if not UIReferences then UIReferences = { Toggles = {} } end
+    UIReferences.Toggles[name] = {
+        Toggled = Toggled,
+        TickCover = TickCover,
+        CheckboxOutline = CheckboxOutline,
+        CheckboxTicked = CheckboxTicked,
+        Callback = callback,
+        EnabledDuringLoad = true
+    }
+
+    NameToggle.Name = (name .. "Toggle")
+    NameToggle.Parent = SectionContent or error("SectionContent tidak ditemukan")
+    NameToggle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    NameToggle.BackgroundTransparency = 1.000
+    NameToggle.Size = UDim2.new(0, 197, 0, 35)
+    NameToggle.ZIndex = 5
+
+    Title.Name = "Title"
+    Title.Parent = NameToggle
+    Title.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Title.BackgroundTransparency = 1.000
+    Title.Position = UDim2.new(0, 13, 0, 0)
+    Title.Size = UDim2.new(0, 149, 0, 35)
+    Title.ZIndex = 5
+    Title.Font = Library and Library.Theme and Library.Theme.TextFont or Enum.Font.SourceSansBold
+    Title.Text = name
+    Title.TextColor3 = Toggled and (Library and Library.Theme and Library.Theme.TextColor or Color3.fromRGB(255, 255, 255)) or Color3.fromRGB(185, 185, 185)
+    if Library and Library.LibraryColorTable then table.insert(Library.LibraryColorTable, Title) end
+    if _G.UpdateTextColors then UpdateTextColors() end
+    Title.TextSize = 15.000
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+
+    Toggle.Name = "Toggle"
+    Toggle.Parent = NameToggle
+    Toggle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Toggle.BackgroundTransparency = 1.000
+    Toggle.Position = UDim2.new(0, 161, 0, 7)
+    Toggle.Size = UDim2.new(0, 20, 0, 20)
+    Toggle.ZIndex = 5
+    Toggle.AutoButtonColor = false
+    Toggle.Font = Library and Library.Theme and Library.Theme.TextFont or Enum.Font.SourceSansBold
+    Toggle.Text = ""
+    Toggle.TextColor3 = Library and Library.Theme and Library.Theme.TextColor or Color3.fromRGB(255, 255, 255)
+    Toggle.TextSize = 14.000
+
+    CheckboxOutline.Name = "CheckboxOutline"
+    CheckboxOutline.Parent = Toggle
+    CheckboxOutline.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    CheckboxOutline.BackgroundTransparency = 1.000
+    CheckboxOutline.Position = UDim2.new(0.5, -12, 0.5, -12)
+    CheckboxOutline.Size = UDim2.new(0, 24, 0, 24)
+    CheckboxOutline.ZIndex = 5
+    CheckboxOutline.Image = "rbxassetid://5416796047"
+    CheckboxOutline.ImageColor3 = Toggled and (Library and Library.Theme and Library.Theme.MainColor or Color3.fromRGB(255, 75, 75)) or Color3.fromRGB(65, 65, 65)
+
+    CheckboxTicked.Name = "CheckboxTicked"
+    CheckboxTicked.Parent = Toggle
+    CheckboxTicked.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    CheckboxTicked.BackgroundTransparency = 1.000
+    CheckboxTicked.Position = UDim2.new(0.5, -12, 0.5, -12)
+    CheckboxTicked.Size = UDim2.new(0, 24, 0, 24)
+    CheckboxTicked.ZIndex = 6
+    CheckboxTicked.Image = "rbxassetid://5416796675"
+    CheckboxTicked.ImageColor3 = Toggled and (Library and Library.Theme and Library.Theme.MainColor or Color3.fromRGB(255, 75, 75)) or Color3.fromRGB(65, 65, 65)
+    if Library and Library.LibraryColorTable then table.insert(Library.LibraryColorTable, CheckboxTicked) end
+
+    TickCover.Name = "TickCover"
+    TickCover.Parent = Toggle
+    TickCover.BackgroundColor3 = Library and Library.Theme and Library.Theme.BackgroundColor or Color3.fromRGB(35, 35, 35)
+    TickCover.BorderSizePixel = 0
+    TickCover.Position = Toggled and UDim2.new(0.5, 0, 0.5, 0) or UDim2.new(0.5, -7, 0.5, -7)
+    TickCover.Size = Toggled and UDim2.new(0, 0, 0, 0) or UDim2.new(0, 14, 0, 14)
+    TickCover.ZIndex = 7
+
+    if tooltipText then
+        Tooltip = Instance.new("TextLabel")
+        Tooltip.Name = "Tooltip"
+        Tooltip.Parent = NameToggle
+        Tooltip.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        Tooltip.Position = UDim2.new(0, 10, 0, -10)
+        Tooltip.ZIndex = 10
+        Tooltip.Font = Library and Library.Theme and Library.Theme.TextFont or Enum.Font.SourceSansBold
+        Tooltip.Text = tooltipText
+        Tooltip.TextColor3 = Color3.fromRGB(0, 0, 0)
+        Tooltip.TextSize = 14.000
+        Tooltip.Visible = false
+        Tooltip.ClipsDescendants = true
+
+        local UICorner = Instance.new("UICorner")
+        UICorner.CornerRadius = UDim.new(0, 5)
+        UICorner.Parent = Tooltip
+
+        local lineCount = 0
+        for _ in tooltipText:gmatch("\n") do
+            lineCount = lineCount + 1
+        end
+        Tooltip.Position = UDim2.new(0, 10, 0, -10 - (lineCount * 20))
+        Tooltip.Size = UDim2.new(0, math.min(Tooltip.TextBounds.X + 10, 187), 0, Tooltip.TextBounds.Y + 5)
+
+        Title.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                Tooltip.Visible = true
+            elseif input.UserInputType == Enum.UserInputType.MouseMovement then
+                Tooltip.Visible = true
+            end
+        end)
+
+        Title.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                Tooltip.Visible = false
+            elseif input.UserInputType == Enum.UserInputType.MouseMovement then
+                Tooltip.Visible = false
+            end
+        end)
+    end
+
+    local function safeCallback(state)
+        if type(callback) == "function" and UIReferences.Toggles[name].EnabledDuringLoad then
+            local success, err = pcall(callback, state)
+            if not success then
+                warn(err)
+            end
+        end
+    end
+
+    Toggle.MouseButton1Down:Connect(function()
+        Toggled = not Toggled
+        UIReferences.Toggles[name].EnabledDuringLoad = true
+        TweenService:Create(Title, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {TextColor3 = Toggled and (Library and Library.Theme and Library.Theme.TextColor or Color3.fromRGB(255, 255, 255)) or Color3.fromRGB(185, 185, 185)}):Play()
+        TweenService:Create(TickCover, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = Toggled and UDim2.new(0.5, 0, 0.5, 0) or UDim2.new(0.5, -7, 0.5, -7), Size = Toggled and UDim2.new(0, 0, 0, 0) or UDim2.new(0, 14, 0, 14)}):Play()
+        TweenService:Create(CheckboxOutline, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {ImageColor3 = Toggled and (Library and Library.Theme and Library.Theme.MainColor or Color3.fromRGB(255, 75, 75)) or Color3.fromRGB(65, 65, 65)}):Play()
+        TweenService:Create(CheckboxTicked, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {ImageColor3 = Toggled and (Library and Library.Theme and Library.Theme.MainColor or Color3.fromRGB(255, 75, 75)) or Color3.fromRGB(65, 65, 65)}):Play()
+        Settings[gameId][name] = Toggled
+        SaveSettings()
+        safeCallback(Toggled)
+        task.wait()
+    end)
+
+    if Library and Library.LibraryColorTable then
+        table.insert(Library.LibraryColorTable, CheckboxOutline)
+        table.insert(Library.LibraryColorTable, CheckboxTicked)
+    end
+
+    if Toggled then
+        task.wait(0.1)
+    end
+
+    if SectionContent and SectionContentLayout then
+        SectionContent.CanvasSize = UDim2.new(0, 0, 0, SectionContentLayout.AbsoluteContentSize.Y + 15)
+    end
+
+    task.delay(1, function()
+        if UIReferences and UIReferences.Toggles[name] and UIReferences.Toggles[name].Toggled then
+            UIReferences.Toggles[name].EnabledDuringLoad = true
+            safeCallback(UIReferences.Toggles[name].Toggled)
+        end
+    end)
+
+    return {
+        SetState = function(state)
+            Toggled = state
+            UIReferences.Toggles[name].EnabledDuringLoad = true
+            TweenService:Create(Title, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {TextColor3 = Toggled and (Library and Library.Theme and Library.Theme.TextColor or Color3.fromRGB(255, 255, 255)) or Color3.fromRGB(185, 185, 185)}):Play()
+            TweenService:Create(TickCover, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = Toggled and UDim2.new(0.5, 0, 0.5, 0) or UDim2.new(0.5, -7, 0.5, -7), Size = Toggled and UDim2.new(0, 0, 0, 0) or UDim2.new(0, 14, 0, 14)}):Play()
+            TweenService:Create(CheckboxOutline, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {ImageColor3 = Toggled and (Library and Library.Theme and Library.Theme.MainColor or Color3.fromRGB(255, 75, 75)) or Color3.fromRGB(65, 65, 65)}):Play()
+            TweenService:Create(CheckboxTicked, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {ImageColor3 = Toggled and (Library and Library.Theme and Library.Theme.MainColor or Color3.fromRGB(255, 75, 75)) or Color3.fromRGB(65, 65, 65)}):Play()
+            Settings[gameId][name] = state
+            SaveSettings()
+            safeCallback(state)
+            task.wait()
+        end
+    }
+end
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -1085,7 +1571,8 @@ function SectionElements:CreateSlider(name, minimumvalue, maximumvalue, presetva
     Title.ZIndex = 5
     Title.Font = Library.Theme.TextFont
     Title.Text = name
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextColor3 = Library.Theme.TextColor
+table.insert(Library.LibraryColorTable, Title)
     Title.TextSize = 15.000
     Title.TextXAlignment = Enum.TextXAlignment.Left
 
@@ -1244,7 +1731,7 @@ function SectionElements:CreateTextBox(name, characterLimit, placeholderText, ca
             Title.ZIndex = 5
             Title.Font = Library.Theme.TextFont
             Title.Text = name
-            Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Title.TextColor3 = Library.Theme.TextColor
             Title.TextSize = 15.000
             Title.TextXAlignment = Enum.TextXAlignment.Left
 
@@ -1328,7 +1815,7 @@ function SectionElements:CreateTextBox(name, characterLimit, placeholderText, ca
             Title.ZIndex = 5
             Title.Font = Library.Theme.TextFont
             Title.Text = name
-            Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Title.TextColor3 = Library.Theme.TextColor
             Title.TextSize = 15.000
             Title.TextXAlignment = Enum.TextXAlignment.Left
             
@@ -1710,13 +2197,14 @@ function SectionElements:CreateDropdown(name, options, presetoption, callback)
     if not Settings[gameId] then Settings[gameId] = {} end
     local SelectedOption = tostring(Settings[gameId][name] or options[presetoption] or options[1] or "None")
 
+    
     NameDropdown.Name = (name .. "Dropdown")
     NameDropdown.Parent = SectionContent
     NameDropdown.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     NameDropdown.BackgroundTransparency = 1.000
     NameDropdown.Position = UDim2.new(0, 0, 0.773480654, 0)
     NameDropdown.Size = UDim2.new(0, 197, 0, 35)
-    NameDropdown.ZIndex = 5
+    NameDropdown.ZIndex = 10
 
     TitleToggle.Name = "TitleToggle"
     TitleToggle.Parent = NameDropdown
@@ -1725,7 +2213,7 @@ function SectionElements:CreateDropdown(name, options, presetoption, callback)
     TitleToggle.BorderSizePixel = 0
     TitleToggle.Position = UDim2.new(0, 13, 0, 0)
     TitleToggle.Size = UDim2.new(0, 167, 0, 30)
-    TitleToggle.ZIndex = 7
+    TitleToggle.ZIndex = 11
     TitleToggle.Font = Library.Theme.TextFont
     TitleToggle.Text = (name .. " - " .. SelectedOption)
     TitleToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1738,7 +2226,7 @@ function SectionElements:CreateDropdown(name, options, presetoption, callback)
     Dropdown.BackgroundTransparency = 1.000
     Dropdown.Position = UDim2.new(0, 15, 0, 30)
     Dropdown.Size = UDim2.new(0, 165, 0, 0)
-    Dropdown.ZIndex = 15
+    Dropdown.ZIndex = 12
     Dropdown.Image = "rbxassetid://3570695787"
     Dropdown.ImageColor3 = Color3.fromRGB(45, 45, 45)
     Dropdown.ScaleType = Enum.ScaleType.Slice
@@ -1761,7 +2249,7 @@ function SectionElements:CreateDropdown(name, options, presetoption, callback)
     searchTextBox.Visible = false
     searchTextBox.TextSize = 14
     searchTextBox.Font = Library.Theme.TextFont
-    searchTextBox.ZIndex = 16
+    searchTextBox.ZIndex = 13
 
     local function ResetAllDropdownItems()
         for i, v in pairs(Dropdown:GetChildren()) do
@@ -1800,16 +2288,31 @@ function SectionElements:CreateDropdown(name, options, presetoption, callback)
                 NameButton.BackgroundTransparency = 1.000
                 NameButton.BorderSizePixel = 0
                 NameButton.Size = UDim2.new(0, 165, 0, 25)
-                NameButton.ZIndex = 15
+                NameButton.ZIndex = 14
                 NameButton.AutoButtonColor = false
                 NameButton.Font = Library.Theme.TextFont
                 NameButton.Text = v
                 NameButton.TextColor3 = (v == SelectedOption) and Library.Theme.MainColor or Color3.fromRGB(255, 255, 255)
                 NameButton.TextSize = 15.000
+                
+                NameButton.TextXAlignment = Enum.TextXAlignment.Center
+
+                
+                local textBounds = NameButton.TextBounds.X + 20 
+                local ClickArea = Instance.new("TextButton")
+                ClickArea.Name = "ClickArea"
+                ClickArea.Parent = NameButton
+                ClickArea.BackgroundTransparency = 1.000
+                ClickArea.Size = UDim2.new(0, textBounds, 0, 25)
+                ClickArea.Position = UDim2.new(0.5, -textBounds / 2, 0, 0) 
+                ClickArea.ZIndex = 15
+                ClickArea.Text = ""
+                ClickArea.AutoButtonColor = false
 
                 table.insert(Library.LibraryColorTable, NameButton)
 
-                NameButton.MouseButton1Down:Connect(function()
+                
+                ClickArea.MouseButton1Down:Connect(function()
                     SelectedOption = v
                     ResetAllDropdownItems()
                     TitleToggle.Text = (name .. " - " .. SelectedOption)
@@ -1817,17 +2320,19 @@ function SectionElements:CreateDropdown(name, options, presetoption, callback)
                     if not Settings[gameId] then Settings[gameId] = {} end
                     Settings[gameId][name] = SelectedOption
                     SaveSettings()
-                    callback(NameButton.Text)
+                    if type(callback) == "function" then
+                        callback(SelectedOption)
+                    end
                     ClearAllDropdownItems()
                 end)
 
-                NameButton.InputBegan:Connect(function(input)
+                ClickArea.InputBegan:Connect(function(input)
                     if input.UserInputType == Enum.UserInputType.MouseMovement then
                         TweenService:Create(NameButton, TweenInfo.new(0.35, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {BackgroundTransparency = 0.95}):Play()
                     end
                 end)
 
-                NameButton.InputEnded:Connect(function(input)
+                ClickArea.InputEnded:Connect(function(input)
                     if input.UserInputType == Enum.UserInputType.MouseMovement then
                         TweenService:Create(NameButton, TweenInfo.new(0.35, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
                     end
@@ -1849,7 +2354,7 @@ function SectionElements:CreateDropdown(name, options, presetoption, callback)
             searchTextBox.Text = ""
             updateOptions("")
             TweenService:Create(TitleToggle, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(185, 185, 185)}):Play()
-            TweenService:Create(NameDropdown, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {Size = UDim2.new(0, 197, 0, 35 + DropdownContentLayout.AbsoluteContentSize.Y + 20)}):Play() 
+            TweenService:Create(NameDropdown, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {Size = UDim2.new(0, 197, 0, 35 + DropdownContentLayout.AbsoluteContentSize.Y + 20)}):Play()
             TweenService:Create(Dropdown, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {Size = UDim2.new(0, 165, 0, DropdownContentLayout.AbsoluteContentSize.Y + 20)}):Play()
         end
     end)
@@ -1861,14 +2366,30 @@ function SectionElements:CreateDropdown(name, options, presetoption, callback)
     end)
 
     local function Refresh(newoptions, newpresetoption, newcallback)
-        ClearAllDropdownItems()
         options = newoptions or options
-        SelectedOption = Settings[gameId][name] or newoptions[newpresetoption] or newoptions[1]
+        local presetValue = options[newpresetoption] or Settings[gameId][name] or options[1]
+        SelectedOption = presetValue
+        
+        if SelectedOption and SelectedOption ~= "None" and type(newcallback) == "function" then
+            callback(SelectedOption)
+        end
+        
         TitleToggle.Text = (name .. " - " .. SelectedOption)
+        Settings[gameId][name] = SelectedOption
+        SaveSettings()
+        
+        ClearAllDropdownItems()
         updateOptions("")
     end
 
     updateOptions("")
+    if type(callback) == "function" and SelectedOption ~= "None" then
+        callback(SelectedOption)
+    end
+
+    if SectionContent and SectionContentLayout then
+        SectionContent.CanvasSize = UDim2.new(0, 0, 0, SectionContentLayout.AbsoluteContentSize.Y + 15)
+    end
 
     return {
         Refresh = Refresh
@@ -1882,8 +2403,8 @@ function SectionElements:CreateMultiDropdown(name, options, minSelect, maxSelect
     
     local DropdownToggled = false
     local SelectedOptions = presetOptions or {}
-    local minSelect = tonumber(minSelect) or 1 -- Pastikan number
-    local maxSelect = tonumber(maxSelect) or (#options or 0) -- Pastikan number dan fallback jika options kosong
+    local minSelect = tonumber(minSelect) or 1
+    local maxSelect = tonumber(maxSelect) or (#options or 0)
 
     NameDropdown.Name = (name .. "MultiDropdown")
     NameDropdown.Parent = SectionContent
@@ -1901,7 +2422,7 @@ function SectionElements:CreateMultiDropdown(name, options, minSelect, maxSelect
     TitleToggle.Size = UDim2.new(0, 167, 0, 30)
     TitleToggle.ZIndex = 7
     TitleToggle.Font = Library.Theme.TextFont
-    TitleToggle.Text = name .. " - " .. #SelectedOptions .. "/" .. maxSelect -- Perbaiki konkatenasi
+    TitleToggle.Text = name .. " - " .. #SelectedOptions .. "/" .. maxSelect
     TitleToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     TitleToggle.TextSize = 15.000
     TitleToggle.TextXAlignment = Enum.TextXAlignment.Left
@@ -1954,7 +2475,7 @@ function SectionElements:CreateMultiDropdown(name, options, minSelect, maxSelect
     local function PopulateDropdown()
         ClearAllDropdownItems()
         
-        for _, v in pairs(options or {}) do -- Pastikan options tidak nil
+        for _, v in pairs(options or {}) do
             local NameButton = Instance.new("TextButton")
             
             NameButton.Name = (v .. "DropdownButton")
@@ -2035,6 +2556,165 @@ end
         Refresh = Refresh,
         GetSelected = function() return SelectedOptions end
     }
+end
+Library.ActiveNotifications = {}
+
+function Library:CreateNotification(title, message, duration, buttons, buttonCallbacks)
+    local NotificationFrame = Instance.new("Frame")
+    local NotificationBackground = Instance.new("Frame")
+    local UICorner = Instance.new("UICorner")
+    local TitleLabel = Instance.new("TextLabel")
+    local MessageLabel = Instance.new("TextLabel")
+    local CloseButton = Instance.new("TextButton")
+    local TimerBar = Instance.new("Frame")
+    local TimerBarFill = Instance.new("Frame")
+
+    local hasButtons = buttons and #buttons > 0
+    local notifHeight = hasButtons and 100 or 70
+
+    NotificationFrame.Name = "Notification"
+    NotificationFrame.Parent = UILibrary
+    NotificationFrame.BackgroundTransparency = 1
+    NotificationFrame.Position = UDim2.new(1, 0, 1, -110)
+    NotificationFrame.Size = UDim2.new(0, 300, 0, notifHeight)
+    NotificationFrame.ZIndex = 100
+
+    NotificationBackground.Name = "Background"
+    NotificationBackground.Parent = NotificationFrame
+    NotificationBackground.BackgroundColor3 = Library.Theme.MainColor
+    NotificationBackground.Size = UDim2.new(1, 0, 1, 0)
+    NotificationBackground.ZIndex = 100
+    UICorner.CornerRadius = UDim.new(0, 10)
+    UICorner.Parent = NotificationBackground
+
+    TitleLabel.Name = "Title"
+    TitleLabel.Parent = NotificationBackground
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Position = UDim2.new(0, 10, 0, 5)
+    TitleLabel.Size = UDim2.new(0, 260, 0, 20)
+    TitleLabel.ZIndex = 101
+    TitleLabel.Font = Library.Theme.TextFont
+    TitleLabel.Text = title or "Notification"
+    TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- Default putih
+    TitleLabel.TextSize = 16
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    MessageLabel.Name = "Message"
+    MessageLabel.Parent = NotificationBackground
+    MessageLabel.BackgroundTransparency = 1
+    MessageLabel.Position = UDim2.new(0, 10, 0, 25)
+    MessageLabel.Size = UDim2.new(0, 260, 0, hasButtons and 40 or 30)
+    MessageLabel.ZIndex = 101
+    MessageLabel.Font = Library.Theme.TextFont
+    MessageLabel.Text = message or ""
+    MessageLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+    MessageLabel.TextSize = 14
+    MessageLabel.TextWrapped = true
+    MessageLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+
+    pcall(function()
+        local envColor = getgenv().Color and string.lower(getgenv().Color) or nil
+        if envColor == "white" then
+            TitleLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+        elseif envColor == "black" then
+            MessageLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        end
+    end)
+
+    CloseButton.Name = "CloseButton"
+    CloseButton.Parent = NotificationBackground
+    CloseButton.BackgroundTransparency = 1
+    CloseButton.Position = UDim2.new(1, -25, 0, 5)
+    CloseButton.Size = UDim2.new(0, 20, 0, 20)
+    CloseButton.ZIndex = 102
+    CloseButton.Font = Library.Theme.TextFont
+    CloseButton.Text = "X"
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseButton.TextSize = 16
+
+    TimerBar.Name = "TimerBar"
+    TimerBar.Parent = NotificationBackground
+    TimerBar.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    TimerBar.BorderSizePixel = 0
+    TimerBar.Position = UDim2.new(0, 10, 1, -15)
+    TimerBar.Size = UDim2.new(0, 280, 0, 5)
+    TimerBar.ZIndex = 101
+
+    TimerBarFill.Name = "TimerBarFill"
+    TimerBarFill.Parent = TimerBar
+    TimerBarFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    TimerBarFill.BorderSizePixel = 0
+    TimerBarFill.Size = UDim2.new(1, 0, 1, 0)
+    TimerBarFill.ZIndex = 102
+
+    local function closeNotification()
+        local index = table.find(Library.ActiveNotifications, NotificationFrame)
+        if index then
+            table.remove(Library.ActiveNotifications, index)
+            TweenService:Create(NotificationFrame, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {
+                Position = UDim2.new(1, 0, NotificationFrame.Position.Y.Scale, NotificationFrame.Position.Y.Offset)
+            }):Play()
+            wait(0.5)
+            NotificationFrame:Destroy()
+            for i, notif in pairs(Library.ActiveNotifications) do
+                local targetY = -110 - (i - 1) * (notif.Size.Y.Offset + 10)
+                TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+                    Position = UDim2.new(1, -310, 1, targetY)
+                }):Play()
+            end
+        end
+    end
+
+    if hasButtons then
+        local buttonCount = math.clamp(#buttons, 1, 5)
+        local buttonWidth = 280 / buttonCount - 5
+        for i = 1, buttonCount do
+            local ActionButton = Instance.new("TextButton")
+            ActionButton.Name = "ActionButton" .. i
+            ActionButton.Parent = NotificationBackground
+            ActionButton.BackgroundColor3 = DarkenObjectColor(Library.Theme.MainColor, 20)
+            ActionButton.Position = UDim2.new(0, 10 + (i - 1) * (buttonWidth + 5), 0, 65)
+            ActionButton.Size = UDim2.new(0, buttonWidth, 0, 20)
+            ActionButton.ZIndex = 102
+            ActionButton.Font = Library.Theme.TextFont
+            ActionButton.Text = buttons[i] or "Button " .. i
+            ActionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+            ActionButton.TextSize = 14
+            
+            local ButtonRounded = Instance.new("UICorner")
+            ButtonRounded.CornerRadius = UDim.new(0, 5)
+            ButtonRounded.Parent = ActionButton
+
+            ActionButton.MouseButton1Click:Connect(function()
+                if buttonCallbacks and buttonCallbacks[i] then
+                    buttonCallbacks[i]()
+                end
+                closeNotification()
+            end)
+        end
+    end
+
+    table.insert(Library.ActiveNotifications, 1, NotificationFrame)
+    for i, notif in pairs(Library.ActiveNotifications) do
+        local targetY = -110 - (i - 1) * (notif.Size.Y.Offset + 10)
+        TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+            Position = UDim2.new(1, -310, 1, targetY)
+        }):Play()
+    end
+
+    local duration = duration or 5
+    TweenService:Create(TimerBarFill, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
+        Size = UDim2.new(0, 0, 1, 0)
+    }):Play()
+    spawn(function()
+        wait(duration)
+        closeNotification()
+    end)
+
+    CloseButton.MouseButton1Click:Connect(closeNotification)
+
+    return NotificationFrame
 end
         function SectionElements:CreateKeybind(name, presetbind, keyboardonly, holdmode, callback)
             local NameKeybind = Instance.new("Frame")
@@ -2125,7 +2805,7 @@ end
             Title.ZIndex = 5
             Title.Font = Library.Theme.TextFont
             Title.Text = name
-            Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Title.TextColor3 = Library.Theme.TextColor
             Title.TextSize = 15.000
             Title.TextXAlignment = Enum.TextXAlignment.Left
 
