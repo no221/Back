@@ -240,4 +240,3 @@ function Library:CreateNotification(title, message, duration, buttons, buttonCal
 
     return NotificationFrame
 end
-
