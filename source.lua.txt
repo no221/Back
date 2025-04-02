@@ -409,6 +409,17 @@ TabButtonLayout.Name = "TabButtonLayout"
 TabButtonLayout.Parent = TabButtons
 TabButtonLayout.FillDirection = Enum.FillDirection.Horizontal
 TabButtonLayout.SortOrder = Enum.SortOrder.LayoutOrder
+local TabScrollingFrame = Instance.new("ScrollingFrame")
+TabScrollingFrame.Name = "TabScrollingFrame"
+TabScrollingFrame.Parent = TabButtons
+TabScrollingFrame.Position = UDim2.new(0, 0, 0, 0)
+TabScrollingFrame.Size = UDim2.new(1, 0, 1, 0)
+TabScrollingFrame.BackgroundTransparency = 1
+TabScrollingFrame.ScrollBarThickness = 5
+TabScrollingFrame.ScrollingDirection = Enum.ScrollingDirection.X
+TabScrollingFrame.AutomaticCanvasSize = Enum.AutomaticSize.X
+TabScrollingFrame.ClipsDescendants = true
+TabButtonLayout.Parent = TabScrollingFrame
 
 TweenService:Create(Main, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {Size = UDim2.new(0, 450, 0, 250)}):Play()
 TweenService:Create(Border, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {ImageTransparency = 0}):Play()
@@ -647,7 +658,7 @@ local function CloseAllTabs()
 end
 
 local function ResetAllTabButtons()
-    for i, v in pairs(TabButtons:GetChildren()) do
+    for i, v in pairs(TabScrollingFrame:GetChildren()) do
         if v:IsA("ImageButton") then
             TweenService:Create(v, TweenInfo.new(0.3, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {ImageColor3 = Library.Theme.MainColor}):Play()
         end
@@ -664,7 +675,7 @@ local function KeepFirstTabOpen()
             end
         end
 
-        for i, v in pairs(TabButtons:GetChildren()) do
+        for i, v in pairs(TabScrollingFrame:GetChildren()) do
             if v:IsA("ImageButton") then
                 if v.Name:find(Library.FirstTab .. "TabButton") then
                     TweenService:Create(v, TweenInfo.new(0.3, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {ImageColor3 = DarkenObjectColor(Library.Theme.MainColor, 15)}):Play()
@@ -727,7 +738,7 @@ function Library:CreateTab(name)
     NameTab.Position = UDim2.new(-1, 0, 0, 0)
 
     NameTabButton.Name = (name .. "TabButton")
-    NameTabButton.Parent = TabButtons
+    NameTabButton.Parent = TabScrollingFrame
     NameTabButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     NameTabButton.BackgroundTransparency = 1.000
     NameTabButton.Size = UDim2.new(0, 84, 0, 25)
@@ -747,17 +758,27 @@ function Library:CreateTab(name)
     Title.Font = Library.Theme.TextFont
     Title.Text = name
     Title.TextColor3 = Library.Theme.TextColor
-table.insert(Library.LibraryColorTable, Title) 
+    table.insert(Library.LibraryColorTable, Title) 
     Title.TextSize = 15.000
-
+    local SectionScrollingFrame = Instance.new("ScrollingFrame")
+    SectionScrollingFrame.Name = "SectionScrollingFrame"
+    SectionScrollingFrame.Parent = NameTab
+    SectionScrollingFrame.BackgroundTransparency = 0
+    SectionScrollingFrame.Position = UDim2.new(0, 0, 0, 0)
+    SectionScrollingFrame.Size = UDim2.new(1, 0, 1, 0)
+    SectionScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    SectionScrollingFrame.ScrollBarThickness = 10
+    SectionScrollingFrame.ScrollingDirection = Enum.ScrollingDirection.X
+    SectionScrollingFrame.AutomaticCanvasSize = Enum.AutomaticSize.X
+    SectionScrollingFrame.ClipsDescendants = true
     SectionLayout.Name = "SectionLayout"
-    SectionLayout.Parent = NameTab
+    SectionLayout.Parent = SectionScrollingFrame
     SectionLayout.FillDirection = Enum.FillDirection.Horizontal
     SectionLayout.SortOrder = Enum.SortOrder.LayoutOrder
     SectionLayout.Padding = UDim.new(0, 25)
 
     SectionPadding.Name = "SectionPadding"
-    SectionPadding.Parent = NameTab
+    SectionPadding.Parent = SectionScrollingFrame
     SectionPadding.PaddingTop = UDim.new(0, 12)
 
     NameTab.Visible = false
@@ -816,15 +837,15 @@ NameTabButton.MouseButton1Down:Connect(function()
 end)
 
     ResetAllTabButtons = function()
-        for _, v in pairs(TabButtons:GetChildren()) do
-            if v:IsA("ImageButton") then
-                TweenService:Create(v, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {
-                    ImageColor3 = Library.Theme.MainColor,
-                    Size = originalSize
-                }):Play()
-            end
+    for _, v in pairs(TabScrollingFrame:GetChildren()) do
+        if v:IsA("ImageButton") then
+            TweenService:Create(v, TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), {
+                ImageColor3 = Library.Theme.MainColor,
+                Size = originalSize
+            }):Play()
         end
     end
+end
 
 local function ShowFirstTab()
     if NameTab.Name == (Library.FirstTab .. "Tab") then
@@ -875,7 +896,7 @@ function TabElements:CreateSection(name)
     local SectionElements = { GameId = self.GameId }
 
     NameSection.Name = (name .. "Section")
-    NameSection.Parent = NameTab
+    NameSection.Parent = SectionScrollingFrame
     NameSection.BackgroundColor3 = Library.Theme.BackgroundColor
     NameSection.BackgroundTransparency = 1.000
     NameSection.Position = UDim2.new(0, 0, 0.0574162677, 0)
@@ -1104,7 +1125,7 @@ local function MakeSectionDraggable()
                                     }):Play()
                                     
                                     task.wait(0.3)
-                                    NameSection.Parent = nearestTab
+                                    NameSection.Parent = nearestTab.SectionScrollingFrame
                                     isDetached = false
                                     MinimizeBtn.Visible = false
                                     SectionTitle.Size = UDim2.new(0, SectionTitle.TextBounds.X + 20, 0, 22)
@@ -1256,59 +1277,133 @@ end
             ImageColor3 = Library.Theme.BackgroundColor
         }):Play()
     end)
-function SectionElements:CreateLabel(name, text)
-     local NameLabel = Instance.new("TextLabel")
- 
-     NameLabel.Name = (name .. "Label")  
-     NameLabel.Parent = SectionContent  
-     NameLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)  
-     NameLabel.BackgroundTransparency = 1.000  
-     NameLabel.Text = text  
-     NameLabel.Size = UDim2.new(0, 197, 0, NameLabel.TextBounds.Y)  
-     NameLabel.ZIndex = 5  
-     NameLabel.Font = Library.Theme.TextFont  
-     NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)  
-     table.insert(Library.LibraryColorTable, NameLabel)  
-     NameLabel.TextSize = 15.000  
-     local function ChangeText(newtext)  
-         NameLabel.Text = newtext  
-     end  
-     local function RefreshLabel(newtext)  
-         TweenService:Create(
-             NameLabel, 
-             TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), 
-             {TextTransparency = 1} -- Fade out
-         ):Play()
-         
-         wait(0.3) 
-         NameLabel.Text = newtext
-         TweenService:Create(
-             NameLabel, 
-             TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), 
-             {TextTransparency = 0} -- Fade in
-         ):Play()
-     end
- NameLabel:GetPropertyChangedSignal("TextBounds"):Connect(function()  
-         if NameLabel.Text ~= "" then  
-             TweenService:Create(
-                 NameLabel, 
-                 TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), 
-                 {Size = UDim2.new(0, 197, 0, NameLabel.TextBounds.Y)}
-             ):Play()  
-         else  
-             TweenService:Create(
-                 NameLabel, 
-                 TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out), 
-                 {Size = UDim2.new(0, 197, 0, 0)}
-             ):Play()  
-         end  
-     end)  
- 
-     return {  
-         ChangeText = ChangeText, 
-         Refresh = RefreshLabel
-     }  
- end
+function SectionElements:CreateLabel(name, text, callback, options)
+    local NameLabel = Instance.new("TextLabel")
+    local LabelButton = nil
+
+    local opts = options or {}
+    local holdColor = opts.holdColor or false
+
+    NameLabel.Name = (name .. "Label")
+    NameLabel.Parent = SectionContent
+    NameLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    NameLabel.BackgroundTransparency = 1.000
+    NameLabel.Text = text or ""
+    NameLabel.Size = UDim2.new(0, 197, 0, NameLabel.TextBounds.Y)
+    NameLabel.ZIndex = 5
+    NameLabel.Font = Library.Theme.TextFont
+    NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    table.insert(Library.LibraryColorTable, NameLabel)
+    NameLabel.TextSize = 15.000
+
+    local isColorHeld = false
+
+    if callback and type(callback) == "function" then
+        LabelButton = Instance.new("TextButton")
+        LabelButton.Name = "LabelButton"
+        LabelButton.Parent = NameLabel
+        LabelButton.BackgroundTransparency = 1.000
+        LabelButton.Size = UDim2.new(1, 0, 1, 0)
+        LabelButton.Position = UDim2.new(0, 0, 0, 0)
+        LabelButton.ZIndex = 6
+        LabelButton.Font = Library.Theme.TextFont
+        LabelButton.Text = ""
+        LabelButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+        LabelButton.TextSize = 15.000
+
+        LabelButton.MouseButton1Click:Connect(function()
+            callback()
+            if holdColor then
+                for _, child in pairs(SectionContent:GetChildren()) do
+                    if child:IsA("TextLabel") and child ~= NameLabel then
+                        TweenService:Create(
+                            child,
+                            TweenInfo.new(0.2, Enum.EasingStyle.Quad),
+                            {TextColor3 = Color3.fromRGB(255, 255, 255)}
+                        ):Play()
+                    end
+                end
+                TweenService:Create(
+                    NameLabel,
+                    TweenInfo.new(0.2, Enum.EasingStyle.Quad),
+                    {TextColor3 = Library.Theme.MainColor}
+                ):Play()
+                isColorHeld = true
+            end
+        end)
+
+        if holdColor then
+            LabelButton.MouseEnter:Connect(function()
+                if not isColorHeld then
+                    TweenService:Create(
+                        NameLabel,
+                        TweenInfo.new(0.2, Enum.EasingStyle.Quad),
+                        {TextColor3 = Library.Theme.MainColor}
+                    ):Play()
+                end
+            end)
+        else
+            LabelButton.MouseEnter:Connect(function()
+                TweenService:Create(
+                    NameLabel,
+                    TweenInfo.new(0.2, Enum.EasingStyle.Quad),
+                    {TextColor3 = Library.Theme.MainColor}
+                ):Play()
+            end)
+
+            LabelButton.MouseLeave:Connect(function()
+                TweenService:Create(
+                    NameLabel,
+                    TweenInfo.new(0.2, Enum.EasingStyle.Quad),
+                    {TextColor3 = Color3.fromRGB(255, 255, 255)}
+                ):Play()
+            end)
+        end
+    end
+
+    local function ChangeText(newtext)
+        NameLabel.Text = newtext
+    end
+
+    local function RefreshLabel(newtext)
+        TweenService:Create(
+            NameLabel,
+            TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {TextTransparency = 1}
+        ):Play()
+
+        wait(0.3)
+        NameLabel.Text = newtext
+        TweenService:Create(
+            NameLabel,
+            TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+            {TextTransparency = 0}
+        ):Play()
+    end
+
+    NameLabel:GetPropertyChangedSignal("TextBounds"):Connect(function()
+        if NameLabel.Text ~= "" then
+            TweenService:Create(
+                NameLabel,
+                TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out),
+                {Size = UDim2.new(0, 197, 0, NameLabel.TextBounds.Y)}
+            ):Play()
+        else
+            TweenService:Create(
+                NameLabel,
+                TweenInfo.new(0.5, Library.Theme.EasingStyle, Enum.EasingDirection.Out),
+                {Size = UDim2.new(0, 197, 0, 0)}
+            ):Play()
+        end
+    end)
+
+    SectionContent.CanvasSize = UDim2.new(0, 0, 0, SectionContentLayout.AbsoluteContentSize.Y + 15)
+
+    return {
+        ChangeText = ChangeText,
+        Refresh = RefreshLabel
+    }
+end
 
         function SectionElements:CreateButton(name, callback)
             local NameButton = Instance.new("Frame")
@@ -2220,6 +2315,53 @@ function SectionElements:CreateTextBox(name, characterLimit, placeholderText, ca
             table.insert(Library.LibraryColorTable, CheckboxOutline)
             table.insert(Library.LibraryColorTable, CheckboxTicked)
         end
+function Library:CreateWindow(text)
+    local WindowTitle = Instance.new("TextLabel")
+    WindowTitle.Name = "WindowTitle"
+    WindowTitle.Parent = Topbar
+    WindowTitle.BackgroundTransparency = 1
+    WindowTitle.AnchorPoint = Vector2.new(0.5, 0)
+    WindowTitle.Position = UDim2.new(0.5, 0, 0, 0)
+    WindowTitle.Size = UDim2.new(0, 400, 1, 0)
+    WindowTitle.ZIndex = 3
+    WindowTitle.Font = Library.Theme.TextFont
+    WindowTitle.Text = text or "Window Title"
+    WindowTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    WindowTitle.TextSize = 14
+    WindowTitle.TextXAlignment = Enum.TextXAlignment.Center
+
+    table.insert(Library.LibraryColorTable, WindowTitle)
+
+    local function ColorTransition()
+        while true do
+            for i = 0, 1, 0.01 do
+                local r = 255
+                local g = 255 - (i * (255 - 75))
+                local b = 255 - (i * (255 - 75))
+                WindowTitle.TextColor3 = Color3.fromRGB(r, g, b)
+                task.wait(0.02)
+            end
+            for i = 0, 1, 0.01 do
+                local r = 255 - (i * 255)
+                local g = 75 - (i * 75)
+                local b = 75 + (i * (255 - 75))
+                WindowTitle.TextColor3 = Color3.fromRGB(r, g, b)
+                task.wait(0.02)
+            end
+            for i = 0, 1, 0.01 do
+                local r = 0 + (i * 255)
+                local g = 0 + (i * 255)
+                local b = 255 - (i * (255 - 255))
+                WindowTitle.TextColor3 = Color3.fromRGB(r, g, b)
+                task.wait(0.02)
+            end
+        end
+    end
+
+    coroutine.wrap(ColorTransition)()
+
+    return WindowTitle
+end
 
 function SectionElements:CreateDropdown(name, options, presetoption, callback)
     local NameDropdown = Instance.new("Frame")
